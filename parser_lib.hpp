@@ -47,8 +47,8 @@ class pic_png : public Media_type {
     protected:
     std::map<const char*, bool> chunks_visited = {
     {"IHDR", false}, {"PLTE", false}, {"IEND", false}, {"cHRM", false},
-    {"gAMA", false}, {"cICP", false}, {"mDCV", false}, {"hIST", false},
-    {"cLLI", false}, {"iCCP", false}, {"sBIT", false}, {"sRGB", false},
+    {"gAMA", false}, {"cICP", false}, {"mDCV", false}, {"cLLI", false}, 
+    {"iCCP", false}, {"sBIT", false}, {"sRGB", false}, {"hIST", false},
     {"bKGD", false}, {"pHYs", false}, {"tIME", false}, {"tRNS", false}, 
     {"eXIf", false}, {"sPLT", false}, {"acTL", false} };
     public:
@@ -113,7 +113,15 @@ class pic_png : public Media_type {
         std::size_t wah = 0;
         header_check() ? corrupted = true : 0;
         if (corrupted) return corrupted;
-
+        //3 -> 10
+        wah = data.find("cHRM", 0);
+        wah = data.find("cICP", 0);
+        wah = data.find("gAMA", 0);
+        wah = data.find("iCCP", 0);
+        wah = data.find("mDCV", 0);
+        wah = data.find("cLLI", 0);
+        wah = data.find("sBIT", 0);
+        wah = data.find("sRGB", 0);
     };
 };
 
