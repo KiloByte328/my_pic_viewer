@@ -8,9 +8,9 @@ class Media_type{
     protected:
     std::size_t type, width, height;
     std::size_t size;
-    std::string data;
     int bit_depth, compression_method, color_type, filter_method, interlace_method, bit_on_pixel;
     std::map <const char*, bool> chunks_visited;
+    std::string data;
     bool corrupted = false;
     public:
     virtual int get_type() const { return type; };
@@ -122,6 +122,8 @@ class pic_png : public Media_type {
         wah = data.find("cLLI", 0);
         wah = data.find("sBIT", 0);
         wah = data.find("sRGB", 0);
+        wah = data.find("pHYs", 0);
+        return corrupted;
     };
 };
 

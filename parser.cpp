@@ -50,4 +50,4 @@ int main(int argc, char** argv) {
     << "\nFilter method: " << pntr->get_filter() << "\nBits on pixel: " << pntr->get_bop() << "\n";
     delete pntr;
     return 0;
-}
+} 
