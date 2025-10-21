@@ -31,6 +31,13 @@ class Media_type{
     Media_type() { data.clear(); }
 };
 
+std::ostream& operator <<(std::ostream& os, const Media_type& mt) {
+    os << "type: " << mt.get_type() << "\nwidth: " << mt.get_width() << "\nheigth: " << mt.get_height() 
+       << "\nsize: " << mt.get_size() << "\nbits depth: " << mt.get_depth() << "\ncolor_type: " << mt.get_color_type() 
+       << "\nfileter: " << mt.get_filter() << "\nintelance: " << mt.get_interlace() << "\ncompression: " << mt.get_compression();
+       return os;
+}
+
 class invalid_type : public Media_type {
     public:
     invalid_type() {type = -1; width = 0; height = 0; size = -1; data.clear(); };

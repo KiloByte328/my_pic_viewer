@@ -1,6 +1,6 @@
 #include "parser_lib.hpp"
 
-//garbage that i need
+//garbage that i need, just magic_numbers
     // find_in_c_str(data.c_str(), 200, "\211PNG\r", 6) != (std::size_t)-1
     //                ? pntr = (Media_type*) new pic_png : pntr = (Media_type*) new invalid_type;
 
@@ -44,10 +44,7 @@ int main(int argc, char** argv) {
     fl.close();
     data.find("\211PNG\r", 0) != data.npos ? pntr = new pic_png(data) : pntr = new invalid_type;
     pntr->get_type() == 1 ? pntr->parse() : 0 ;
-    std::cout << "Type: " << pntr->get_type() << "\nWidth: " << pntr->get_width() << "\nHeight: "
-    << pntr->get_height() << "\nSize: " << pntr->get_size() << "\nBit depth: " <<
-    pntr->get_depth() << "\nCompression method: " << pntr->get_compression() << "\nColor type: " << pntr->get_color_type() << "\nInterlace method: " << pntr->get_interlace()
-    << "\nFilter method: " << pntr->get_filter() << "\nBits on pixel: " << pntr->get_bop() << "\n";
+    std::cout << *pntr << '\n';
     delete pntr;
     return 0;
 } 
