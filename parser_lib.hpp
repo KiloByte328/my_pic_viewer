@@ -9,9 +9,9 @@ class Media_type{
     std::size_t type, width, height;
     std::size_t size;
     int bit_depth, compression_method, color_type, filter_method, interlace_method, bit_on_pixel;
-    std::map <const char*, bool> chunks_visited;
-    std::string data;
     bool corrupted = false;
+    //std::map <const char*, bool> chunks_visited;
+    std::string data;
     public:
     virtual int get_type() const { return type; };
     virtual int get_width() const { return width; };
@@ -32,7 +32,22 @@ class Media_type{
 };
 
 std::ostream& operator <<(std::ostream& os, const Media_type& mt) {
-    os << "type: " << mt.get_type() << "\nwidth: " << mt.get_width() << "\nheigth: " << mt.get_height() 
+    os << "type: ";
+    switch (mt.get_type()) {
+        case 1:
+            os << "PNG";
+        break;
+        case 2:
+            os << "JPEG";
+        break;
+        case 3:
+            os << "WEBP";
+        break;
+        default: 
+            os << "invalid type";
+        break;
+    }
+    os << "\nwidth: " << mt.get_width() << "\nheigth: " << mt.get_height() 
        << "\nsize: " << mt.get_size() << "\nbits depth: " << mt.get_depth() << "\ncolor_type: " << mt.get_color_type() 
        << "\nfileter: " << mt.get_filter() << "\nintelance: " << mt.get_interlace() << "\ncompression: " << mt.get_compression();
        return os;
@@ -51,13 +66,14 @@ class invalid_type : public Media_type {
 // IDAT -> tIME/iTXt/tEXt/zTXt -> IEND
 
 class pic_png : public Media_type {
-    protected:
-    std::map<const char*, bool> chunks_visited = {
-    {"IHDR", false}, {"PLTE", false}, {"IEND", false}, {"cHRM", false},
-    {"gAMA", false}, {"cICP", false}, {"mDCV", false}, {"cLLI", false}, 
-    {"iCCP", false}, {"sBIT", false}, {"sRGB", false}, {"hIST", false},
-    {"bKGD", false}, {"pHYs", false}, {"tIME", false}, {"tRNS", false}, 
-    {"eXIf", false}, {"sPLT", false}, {"acTL", false} };
+    // protected:
+    // может без мапы обойдёмся
+    // std::map<const char*, bool> chunks_visited = {
+    // {"IHDR", false}, {"PLTE", false}, {"IEND", false}, {"cHRM", false},
+    // {"gAMA", false}, {"cICP", false}, {"mDCV", false}, {"cLLI", false}, 
+    // {"iCCP", false}, {"sBIT", false}, {"sRGB", false}, {"hIST", false},
+    // {"bKGD", false}, {"pHYs", false}, {"tIME", false}, {"tRNS", false}, 
+    // {"eXIf", false}, {"sPLT", false}, {"acTL", false} };
     public:
     pic_png() {type = 1; width = 800; height = 600; size = -1; data.clear(); bit_depth = 8; color_type = 6; compression_method = 0; filter_method = 0; interlace_method = 0; bit_on_pixel = 24; };
     pic_png(std::string new_data) { 
@@ -102,7 +118,9 @@ class pic_png : public Media_type {
     if (size == data.npos)
         corrupted = true;
     wah = data.find("IHDR", 0) + 4; //directly going to information of IHDR
-    chunks_visited["IHDR"] = true;
+    // ищем ещё один IHDR, если есть, то это плохой пнг
+    if (data.find("IHDR", wah + 4) != data.npos) corrupted = true;
+    // chunks_visited["IHDR"] = true;
     width = 0;
     height = 0;
     width = pars_char_to_int(data.substr(wah, 4).c_str(), 4);
@@ -121,17 +139,54 @@ class pic_png : public Media_type {
         //can't be multiple in one file
         std::size_t wah = 0;
         wah = data.find("cHRM", 0);
+        if (wah != data.npos) {
+            if (data.find("cHRM", wah + 4) != data.npos)
+            corrupted = true;
+        }
         wah = data.find("cICP", 0);
+        if (wah != data.npos) {
+            if (data.find("cICP", wah + 4) != data.npos)
+            corrupted = true;
+        }
         wah = data.find("gAMA", 0);
+        if (wah != data.npos) {
+            if (data.find("gAMA", wah + 4) != data.npos)
+            corrupted = true;
+        }
         wah = data.find("iCCP", 0);
+        if (wah != data.npos) {
+            if (data.find("iCCP", wah + 4) != data.npos)
+            corrupted = true;
+        }
         wah = data.find("mDCV", 0);
+        if (wah != data.npos) {
+            if (data.find("mDCV", wah + 4) != data.npos)
+            corrupted = true;
+        }
         wah = data.find("cLLI", 0);
+        if (wah != data.npos) {
+            if (data.find("cLLI", wah + 4) != data.npos)
+            corrupted = true;
+        }
         wah = data.find("sBIT", 0);
+        if (wah != data.npos) {
+            if (data.find("sBIT", wah + 4) != data.npos)
+            corrupted = true;
+        }
         wah = data.find("sRGB", 0);
+        if (wah != data.npos) {
+            if (data.find("sRGB", wah + 4) != data.npos)
+            corrupted = true;
+        }
         wah = data.find("pHYs", 0);
+        if (wah != data.npos) {
+            if (data.find("pHYs", wah + 4) != data.npos)
+            corrupted = true;
+        }
         return corrupted;
     }
 
+    //return true if file is corrupted else false
     virtual bool parse() override {
         header_check();
         if (corrupted) return corrupted;

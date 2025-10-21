@@ -42,9 +42,10 @@ int main(int argc, char** argv) {
     str_strm << fl.rdbuf();
     data.append(str_strm.str());
     fl.close();
+    bool test;
     data.find("\211PNG\r", 0) != data.npos ? pntr = new pic_png(data) : pntr = new invalid_type;
-    pntr->get_type() == 1 ? pntr->parse() : 0 ;
-    std::cout << *pntr << '\n';
+    pntr->get_type() == 1 ? test = pntr->parse() : 0 ;
+    !test ? std::cout << test << '\n' << *pntr << '\n' : std::cout << "file is corrupted PNGm cant open, end of programm\n";
     delete pntr;
     return 0;
 } 
