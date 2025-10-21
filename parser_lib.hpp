@@ -116,11 +116,10 @@ class pic_png : public Media_type {
     return corrupted;
     };
 
-    virtual bool parse() override {
-        std::size_t wah = 0;
-        header_check() ? corrupted = true : 0;
-        if (corrupted) return corrupted;
+    bool chunks_check() {
         //3 -> 10
+        //can't be multiple in one file
+        std::size_t wah = 0;
         wah = data.find("cHRM", 0);
         wah = data.find("cICP", 0);
         wah = data.find("gAMA", 0);
@@ -131,13 +130,34 @@ class pic_png : public Media_type {
         wah = data.find("sRGB", 0);
         wah = data.find("pHYs", 0);
         return corrupted;
+    }
+
+    virtual bool parse() override {
+        header_check();
+        if (corrupted) return corrupted;
+        chunks_check();
+        if (corrupted) return corrupted;
+
+        return corrupted;
     };
 };
 
 // JPEG
 class pic_jpeg : public Media_type {
     public:
-    pic_jpeg() {type = 2; width = 800; height = 600; size = -1; data.clear(); bit_depth = 8; color_type = 3; compression_method = 1; filter_method = 0; interlace_method = 0; bit_on_pixel = 24; };
+      pic_jpeg() {
+        type = 2;
+        width = 800;
+        height = 600;
+        size = -1;
+        data.clear();
+        bit_depth = 8;
+        color_type = 3;
+        compression_method = 1;
+        filter_method = 0;
+        interlace_method = 0;
+        bit_on_pixel = 24;
+      };
 };
 
 // RIFF *File size* WEBP
@@ -145,5 +165,17 @@ class pic_webp : public Media_type {
     protected:
     int color_type;
     public:
-    pic_webp() {type = 3; width = 800; height = 600; size = -1; data.clear(); bit_depth = 8; color_type = 3; compression_method = 1; filter_method = 0; interlace_method = 0; bit_on_pixel = 24; };
+      pic_webp() {
+        type = 3;
+        width = 800;
+        height = 600;
+        size = -1;
+        data.clear();
+        bit_depth = 8;
+        color_type = 3;
+        compression_method = 1;
+        filter_method = 0;
+        interlace_method = 0;
+        bit_on_pixel = 24;
+      };
 };
