@@ -66,8 +66,9 @@ class invalid_type : public Media_type {
 // IDAT -> tIME/iTXt/tEXt/zTXt -> IEND
 
 class pic_png : public Media_type {
-    // protected:
+    // возможно придётся сделать проверку по CRC32
     // может без мапы обойдёмся
+    // protected:
     // std::map<const char*, bool> chunks_visited = {
     // {"IHDR", false}, {"PLTE", false}, {"IEND", false}, {"cHRM", false},
     // {"gAMA", false}, {"cICP", false}, {"mDCV", false}, {"cLLI", false}, 
@@ -112,12 +113,16 @@ class pic_png : public Media_type {
         return val;
     };
 
-    bool header_check() {
+    bool header_check_repeat_only() {
     std::size_t wah = 0;
-    size = data.find("IEND", 0);
+    size = data.find("IEND");
     if (size == data.npos)
         corrupted = true;
     wah = data.find("IHDR", 0) + 4; //directly going to information of IHDR
+    if (wah == data.npos) {
+        corrupted = true;
+        return corrupted;
+    } // если ihdr не найден, то и работать с файлом не можем так как мы не знаем его параметры
     // ищем ещё один IHDR, если есть, то это плохой пнг
     if (data.find("IHDR", wah + 4) != data.npos) corrupted = true;
     // chunks_visited["IHDR"] = true;
@@ -134,61 +139,72 @@ class pic_png : public Media_type {
     return corrupted;
     };
 
+    //checking checksum CRC32
+    bool check_checksum() {
+
+    };
+
+    std::size_t header_check_repeat_only(const char* header_name) {
+        if (data.find(header_name, (data.find(header_name) + 4)) == data.npos)
+            return data.find(header_name); 
+        else 
+            return (std::size_t)-1;
+    }
+
     bool chunks_check() {
+        //сделать проверки на противоречия в sRGB/iCCP
         //3 -> 10
         //can't be multiple in one file
         std::size_t wah = 0;
-        wah = data.find("cHRM", 0);
+        header_check_repeat_only("cHRM");
+        header_check_repeat_only("cICP");
+        header_check_repeat_only("gAMA");
+        header_check_repeat_only("tIME");
+        header_check_repeat_only("eXIf");
+        wah = data.find("iCCP");
         if (wah != data.npos) {
-            if (data.find("cHRM", wah + 4) != data.npos)
+            if (data.find("iCCP", wah + 4) != data.npos || 
+                data.find("sRGB") != data.npos)
             corrupted = true;
         }
-        wah = data.find("cICP", 0);
-        if (wah != data.npos) {
-            if (data.find("cICP", wah + 4) != data.npos)
-            corrupted = true;
-        }
-        wah = data.find("gAMA", 0);
-        if (wah != data.npos) {
-            if (data.find("gAMA", wah + 4) != data.npos)
-            corrupted = true;
-        }
-        wah = data.find("iCCP", 0);
-        if (wah != data.npos) {
-            if (data.find("iCCP", wah + 4) != data.npos)
-            corrupted = true;
-        }
-        wah = data.find("mDCV", 0);
+        wah = data.find("mDCV");
         if (wah != data.npos) {
             if (data.find("mDCV", wah + 4) != data.npos)
             corrupted = true;
         }
-        wah = data.find("cLLI", 0);
+        wah = data.find("cLLI");
         if (wah != data.npos) {
             if (data.find("cLLI", wah + 4) != data.npos)
             corrupted = true;
         }
-        wah = data.find("sBIT", 0);
+        wah = data.find("sBIT");
         if (wah != data.npos) {
             if (data.find("sBIT", wah + 4) != data.npos)
             corrupted = true;
         }
-        wah = data.find("sRGB", 0);
+        wah = data.find("sRGB");
         if (wah != data.npos) {
-            if (data.find("sRGB", wah + 4) != data.npos)
+            if (data.find("sRGB", wah + 4) != data.npos ||
+                data.find("iCCP") != data.npos)
             corrupted = true;
         }
-        wah = data.find("pHYs", 0);
+        wah = data.find("pHYs");
         if (wah != data.npos) {
             if (data.find("pHYs", wah + 4) != data.npos)
             corrupted = true;
         }
+        wah = data.find("PLTE");
+        if (wah != data.npos) {
+            if (data.find("PLTE", wah + 4) != data.npos ||
+                data.find("IDAT") < wah)
+                corrupted = true;
+        }
         return corrupted;
-    }
+    };
 
     //return true if file is corrupted else false
     virtual bool parse() override {
-        header_check();
+        header_check_repeat_only();
         if (corrupted) return corrupted;
         chunks_check();
         if (corrupted) return corrupted;
