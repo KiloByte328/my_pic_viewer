@@ -1,5 +1,6 @@
 #pragma once
 #include "MediaType.hpp"
+
 namespace MyMediaTypes {
     // RIFF *File size* WEBP
     class Pic_WEBP : public Media_type {
@@ -18,6 +19,6 @@ namespace MyMediaTypes {
             filter_method = 0;
             interlace_method = 0;
             bit_on_pixel = 24;
-        };
+        }
     };
 }

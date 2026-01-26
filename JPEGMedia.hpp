@@ -17,7 +17,7 @@ namespace MyMediaTypes {
             filter_method = 0;
             interlace_method = 0;
             bit_on_pixel = 24;
-        };
+        }
     };
 
 }

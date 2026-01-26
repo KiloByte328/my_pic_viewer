@@ -1,5 +1,6 @@
 #pragma once
 #include "MediaType.hpp"
+
 namespace MyMediaTypes {
 // PNG
 
@@ -19,10 +20,10 @@ namespace MyMediaTypes {
         // {"bKGD", false}, {"pHYs", false}, {"tIME", false}, {"tRNS", false}, 
         // {"eXIf", false}, {"sPLT", false}, {"acTL", false} };
         public:
-        Pic_PNG() {type = 1; width = 800; height = 600; size = -1; data.clear(); bit_depth = 8; color_type = 6; compression_method = 0; filter_method = 0; interlace_method = 0; bit_on_pixel = 24; };
+        Pic_PNG() {type = 1; width = 800; height = 600; size = -1; data.clear(); bit_depth = 8; color_type = 6; compression_method = 0; filter_method = 0; interlace_method = 0; bit_on_pixel = 24; }
         Pic_PNG(std::string new_data) { 
             type = 1; width = 800; height = 600; size = -1; bit_depth = 8; color_type = 6; compression_method = 0; filter_method = 0; interlace_method = 0; bit_on_pixel = 24;
-            data.clear(); data.append(new_data); };
+            data.clear(); data.append(new_data); }
         
         bool type_and_depth_check() {
             if (color_type == 0 && (bit_depth == 1 || bit_depth == 2 || bit_depth == 4 || bit_depth == 8 || bit_depth == 16)) {
@@ -46,7 +47,7 @@ namespace MyMediaTypes {
                 return true;
             }
             return false;
-        };
+        }
 
         virtual int pars_char_to_int(const char* input_data, std::size_t size_of_data) override { 
             int val = 0;
@@ -54,11 +55,11 @@ namespace MyMediaTypes {
                 val = (val << 8) + (unsigned char)input_data[i];
             }
             return val;
-        };
+        }
 
         bool header_check_repeat_only() {
         std::size_t wah = 0;
-        size = data.find("IEND");
+        size = data.find("IEND") + 8;
         if (size == data.npos)
             corrupted = true;
         wah = data.find("IHDR", 0) + 4;
@@ -80,12 +81,12 @@ namespace MyMediaTypes {
         interlace_method = data[wah + 12];
         type_and_depth_check() == false ? corrupted = true : 0;
         return corrupted;
-        };
+        }
 
         //checking checksum CRC32
         bool check_checksum() {
             return true;
-        };
+        }
 
         std::size_t header_check_repeat_only(const char* header_name) {
             if (data.find(header_name, (data.find(header_name) + 4)) == data.npos)
@@ -144,7 +145,7 @@ namespace MyMediaTypes {
                     corrupted = true;
             }
             return corrupted;
-        };
+        }
 
         //return true if file is corrupted else false
         virtual bool parse() override {
@@ -154,6 +155,6 @@ namespace MyMediaTypes {
             if (corrupted) return corrupted;
 
             return corrupted;
-        };
+        }
     };
 }
