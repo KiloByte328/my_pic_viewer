@@ -37,7 +37,7 @@ namespace MyMediaTypes {
         Invalid_Media() {type = -1; width = 0; height = 0; size = -1; data.clear(); bit_depth = 0;
             compression_method = 0; color_type= 0; filter_method = 0; interlace_method = 0; bit_on_pixel = 0;  };
     };
-        std::ostream& operator <<(std::ostream& os, const Media_type& mt) {
+    std::ostream& operator <<(std::ostream& os, const Media_type& mt) {
         os << "type: ";
         switch (mt.get_type()) {
             case 1:
