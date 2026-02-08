@@ -37,6 +37,7 @@ int main(int argc, char** argv) {
         std::cout << "cant open file\n";
         return 1;
     }
+    make_crc_table();
     str_strm << fl.rdbuf();
     data.append(str_strm.str());
     fl.close();

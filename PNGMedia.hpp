@@ -1,5 +1,8 @@
 #pragma once
 #include "MediaType.hpp"
+#include "crc32_impl/crc32.hpp"
+
+// я короче забыл что чанки идут так: длина чанка(не включая crc) -> тип чанка -> данные -> crc
 
 namespace MyMediaTypes {
 // PNG
