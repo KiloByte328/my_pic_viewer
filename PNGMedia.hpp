@@ -128,6 +128,14 @@ namespace MyMediaTypes {
         }
 
         std::size_t chunks_check(const char* header_name) {
+            if (data.find(header_name) != (std::size_t)-1) {
+                if (check_checksum(data.find(header_name)) != true) {
+                    std::cerr << "chunk " << header_name << " has wrong checksum\n";
+                }
+                else {
+                    std::cerr << "chunk " << header_name << " verified checksum\n";
+                }
+            }
             if (data.find(header_name, (data.find(header_name) + 4)) == data.npos)
                 return data.find(header_name);
             else 
@@ -138,10 +146,10 @@ namespace MyMediaTypes {
             //сделать проверки на противоречия в sRGB/iCCP
             //3 -> 10
             //can't be multiple in one file
-            unsigned int threads = std::thread::hardware_concurrency();
-            if (threads != 0) {
-                // возможно раскинуть проверку чанков на несколько потоков, мб сделать свою проверку на количество потоков
-            }
+            // unsigned int threads = std::thread::hardware_concurrency();
+            // if (threads != 0) {
+            // возможно раскинуть проверку чанков на несколько потоков, мб сделать свою проверку на количество потоков
+            // }
             std::size_t wah = 0;
             std::size_t first_idat = data.find("IDAT");
             chunks_check("cHRM");
