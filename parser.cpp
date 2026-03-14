@@ -44,7 +44,8 @@ int main(int argc, char** argv) {
     bool test;
     data.find("\211PNG\r", 0) != data.npos ? pntr = new MyMediaTypes::Pic_PNG(data) : pntr = new MyMediaTypes::Invalid_Media;
     pntr->get_type() == 1 ? test = pntr->parse() : 0 ;
-    !test ? std::cout << *pntr << '\n' : std::cout << "file is corrupted PNGm cant open, end of programm\n";
+    !test ? std::cout << *pntr << '\n' : std::cout << "file is corrupted PNG\n cant open, end of programm\n";
+    // std::cout << *pntr << '\n';
     delete pntr;
     return 0;
 } 
