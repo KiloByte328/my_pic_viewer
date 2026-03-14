@@ -39,6 +39,10 @@ unsigned long update_crc(unsigned long crc, unsigned char *buf,
   return c;
 }
 
+unsigned long update_crc(unsigned long crc, std::string str) {
+  return update_crc(crc, (unsigned char *)str.c_str(), str.size());
+}
+
 /* Return the CRC of the bytes buf[0..len-1]. */
 unsigned long crc(unsigned char *buf, int len)
 {
