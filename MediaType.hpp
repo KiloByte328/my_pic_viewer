@@ -7,10 +7,26 @@
 #include <cstdint>
 #include <vector>
 
+// для работы в qt будем приводить к 
+// const QRgb rgb1 = 0x88112233;
+// const QRgb rgb2 = QColor("red").rgb();
+// const QRgb rgb3 = qRgb(qRed(rgb1), qGreen(rgb2), qBlue(rgb2));
+// const QRgb rgb4 = qRgba(qRed(rgb1), qGreen(rgb2), qBlue(rgb2), qAlpha(rgb1));
+
 namespace MyMediaTypes {
     struct MediaTypeImageDetails
     {
-        int bit_depth, compression_method, color_type, filter_method, interlace_method, bit_on_pixel, type;
+        int bit_depth, 
+        compression_method, 
+        color_type, 
+        filter_method, 
+        interlace_method, 
+        bit_on_pixel, 
+        type, 
+        window = 0, 
+        cm = 0,
+        dict = 0, 
+        comp_lv = 0;
     };
     
     struct MediaTypePixels
@@ -18,6 +34,12 @@ namespace MyMediaTypes {
         uint8_t r, g, b, a;
     };
     
+    class ImageType {
+        MediaTypeImageDetails my_details;
+        std::vector<MediaTypePixels> Pixels;
+        std::size_t width, height;
+    };
+
     class Media_type{
         protected:
         std::size_t width, height;
@@ -26,8 +48,8 @@ namespace MyMediaTypes {
         bool corrupted = false;
         //std::map <const char*, bool> chunks_visited;
         std::string data;
-        std::vector<MediaTypePixels> Pixels;
         public:
+        virtual void decode_image() {}
         virtual int get_type() const { return details.type; }
         virtual std::size_t get_width() const { return width; }
         virtual std::size_t get_height() const { return height; }
@@ -56,7 +78,8 @@ namespace MyMediaTypes {
                 .interlace_method = 0,
                 .bit_on_pixel = 24,
                 .type = -1,
-            };  }
+            };  
+        }
     };
     std::ostream& operator <<(std::ostream& os, const Media_type& mt) {
         os << "type: ";

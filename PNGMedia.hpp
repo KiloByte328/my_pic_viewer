@@ -3,6 +3,7 @@
 #include "crc32_impl/crc32.hpp"
 #include <thread>
 #include <unordered_map>
+#include <cmath>
 // я короче забыл что чанки идут так: длина чанка(не включая crc и тип чанка) -> тип чанка -> данные -> crc
 
 namespace MyMediaTypes {
@@ -135,8 +136,47 @@ namespace MyMediaTypes {
         virtual bool parse() override {
             header_check();
             if (corrupted) return corrupted;
+            decode_image();
+            return false;
+        }
 
-            return corrupted;
+        virtual void decode_image() override {
+            std::size_t wah = 8;
+            std::string idat_data, dict;
+            int method;
+            unsigned int window;
+            short flv;
+            int fcheck;
+            int fdict;
+            int idats = 0;
+            while (true) {
+                std::size_t next_chunk = pars_char_to_int(data.substr(wah, 4).c_str(), 4);
+                std::string chunk_header = data.substr(wah+4, 4);
+                //adler-32 считается только для уже не сжатых распакованных данных
+                if (chunk_header.compare("IDAT") == 0) {
+                    if (idats == 0) {
+                        method = data[wah+8] & 0xf;
+                        window = pow(2, (data[wah+8]>> 4) + 8);
+                        idats++;
+                        flv = (data[wah+9] & 0xc0) >> 6;
+                        fdict = (data[wah+9] & 0x20) >> 5;
+                        fcheck = data[wah+9] & 0x1f;
+                        details.comp_lv = flv;
+                        details.window = window;
+                        details.dict = fdict;
+                        if (fcheck != 0)
+                            if (data[wah+8]*256 + data[wah+9] / 31 != 0)
+                                corrupted = true;
+                    }
+                    idat_data.append(data.substr(wah+8, next_chunk));
+                }
+                if (chunk_header.compare("IEND") == 0) {
+                    break;
+                }
+                wah += next_chunk + 12;
+            }
+            // std::cout << idat_data << '\n';
+            std::cout << method << '\n' << window << '\n' << flv << '\n' << fdict <<'\n';
         }
     };
 }
