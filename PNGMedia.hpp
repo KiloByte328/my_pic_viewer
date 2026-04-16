@@ -4,6 +4,7 @@
 #include <thread>
 #include <unordered_map>
 #include <cmath>
+#include "zlib_impl/my_zlib_impl.hpp"
 // я короче забыл что чанки идут так: длина чанка(не включая crc и тип чанка) -> тип чанка -> данные -> crc
 
 namespace MyMediaTypes {
@@ -178,6 +179,7 @@ namespace MyMediaTypes {
             }
             // std::cout << idat_data << '\n';
             std::cout << method << '\n' << window << '\n' << flv << '\n' << fdict <<'\n';
+            unpack(idat_data);
         }
     };
 }
