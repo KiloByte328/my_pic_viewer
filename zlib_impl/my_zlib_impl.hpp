@@ -84,9 +84,6 @@ void unpack(std::string& data) {
             is_final = true;
         huffman_code = data[data_cursor] >> bit & 0x03;
         bit += 2;
-        // ^
-        // переместить до while(true)
-        // v
         switch (huffman_code)
         {
         case 0:
@@ -98,21 +95,20 @@ void unpack(std::string& data) {
         nlen += data[data_cursor +4];
         if (len_uncompressed != !nlen) {
             std::cerr << "len not equal !nlen, error while transmitting\n";
-            return;
         }
         data_cursor += 4;
         // no huffman codes, just copy
-        // read len - two bytes and read negative len next two bytes, if len != ~nlen then data corrupted 
+        // read len - two bytes and read negative len next two bytes, if len != ~nlen then data corrupted while transmitting
         break;
         case 1:
         // fixed huffman, huffman_const
             while (true) {
                 for (int bits_eated = 0; bits_eated <= 8; bit++, bits_eated++) {
-                    code = (code << 1) | ((data[data_cursor] >> bit) & 1);
                     if (bit == 8) {
                         data_cursor++;
                         bit = 0;
                     }
+                    code = (code << 1) | ((data[data_cursor] >> bit) & 1);
                     if (bits_eated == 6) {
                         if (code <= 23) {
                             value = code + 256;
@@ -127,16 +123,18 @@ void unpack(std::string& data) {
                             break;
                         }
                         if (code >= 192 && code <= 199) {
-                            value = code - 192 + 280;
+                            value = code - 88;
                             range = 3;
                             break;
                         }
                     }
                     if (bits_eated == 8) {
                         if (code >= 400 && code <= 511) {
-                            value = code - 400 + 144;
+                            bit++;
+                            new_dist = 0;
+                            value = code - 256;
                             range = 1;
-                            for (short r = 0; r < 5; r++, bit++) {
+                            for (short r = 0; r < 5; r++, ++bit) {
                                 if (bit == 8) {
                                     data_cursor++;
                                     bit = 0;
@@ -144,7 +142,8 @@ void unpack(std::string& data) {
                                 new_dist = (new_dist << 1) | ((data[data_cursor] >> bit) & 1);
                             }
                             if (const_huffman_lz.find(new_dist) == const_huffman_lz.end()) {
-                                std::cerr << "find not existed lz77 match at " << data_cursor <<  "\n";
+                                std::cerr << "find not existed lz77 match at " << data_cursor 
+                                <<  "\n" << "match was: " << new_dist << "\ncode was: " << code << '\n';
                                 return;
                                 //error, maybe throw exception maybe not
                             }
