@@ -178,8 +178,7 @@ namespace MyMediaTypes {
                 wah += next_chunk + 12;
             }
             // std::cout << idat_data << '\n';
-            std::cout << method << '\n' << window << '\n' << flv << '\n' << fdict <<'\n';
-            unpack(idat_data);
+            unpack_zlib(idat_data);
         }
     };
 }
