@@ -55,7 +55,7 @@ uint32_t read_bits_lsb(zlib_data& data, uint32_t bits_to_read) {
     return msg;
 }
 
-std::unique_ptr<std::vector<uint8_t>> unpack_zlib(std::string& string_data) {
+std::vector<uint8_t>* unpack_zlib(std::string& string_data) {
     if (string_data.size() < 2) {
         std::cout << "data can not be empty or below 2 chars\n";
         return nullptr;
@@ -66,9 +66,7 @@ std::unique_ptr<std::vector<uint8_t>> unpack_zlib(std::string& string_data) {
     uint16_t distance = 0;
     uint64_t length = 0;
     short check = 0;
-    std::vector<uint8_t>* unpacked_bytes;
-    std::unique_ptr<std::vector<uint8_t>> u = std::make_unique<std::vector<uint8_t>>();
-    unpacked_bytes = u.get();
+    std::vector<uint8_t>* u = new std::vector<uint8_t>;
     std::vector<int> codes;
     // если есть словарь
     if (read_bits_lsb(data, 1) == 1) {
@@ -89,7 +87,24 @@ std::unique_ptr<std::vector<uint8_t>> unpack_zlib(std::string& string_data) {
         data.last_read_bit += 2;
         switch (check) {
             case 0:
-            break;
+            {
+                data.index++;
+                data.last_read_bit = 0;
+                int len = data.data[data.index] << 8 + data.data[data.index+1];
+                data.index += 2;
+                int nlen = data.data[data.index] << 8 + data.data[data.index+1];
+                data.index += 2;
+                std::cout << "len is " << len << " nlen is " << nlen << '\n';
+                if (len != !nlen) {
+                    std::cout << "negative length not equal reverse length\n";
+                    delete u;
+                    return nullptr;
+                }
+                for (int q = 0; q < len; q++) {
+                    codes.push_back(data.data[data.index]);
+                }
+                break;
+            }
             case 1:
                 while(true) {
                     code = 0;
@@ -151,21 +166,21 @@ std::unique_ptr<std::vector<uint8_t>> unpack_zlib(std::string& string_data) {
         }
         if (is_final) break;
     }
-    for (auto& c : codes) {
-        std::cout << "code: " << c << '\n';
-    }
+    // for (auto& c : codes) {
+    //     std::cout << "code: " << c << '\n';
+    // }
     for (std::size_t i = 0; i < codes.size(); i++) {
         if (codes[i] >= 256) {
-            std::cout << "i above 255 is " << i << '\n' << "codes i+1 is " << codes[i+1] << " codes i+2 is " << codes[i+2]
-                      << " size of inpacked codes is " << unpacked_bytes->size() << '\n';
-            for (int q = unpacked_bytes->size() - codes[i+2], readed = 0; readed < codes[i+1]; readed++) {
-                unpacked_bytes->push_back((*unpacked_bytes)[q + (readed % (uint64_t)codes[i+2])]);
-                std::cout << "readed is " << readed << " q is " << q << " readed % codes[i+2] " << readed % codes[i+2] << '\n';
+            // std::cout << "i above 255 is " << i << '\n' << "codes i+1 is " << codes[i+1] << " codes i+2 is " << codes[i+2]
+            //           << " size of inpacked codes is " << unpacked_bytes->size() << '\n';
+            for (int q = u->size() - codes[i+2], readed = 0; readed < codes[i+1]; readed++) {
+                u->push_back((*u)[q + (readed % (uint64_t)codes[i+2])]);
+                // std::cout << "readed is " << readed << " q is " << q << " readed % codes[i+2] " << readed % codes[i+2] << '\n';
             }
             i += 2;
         }
         else {
-            unpacked_bytes->push_back(codes[i]);
+            u->push_back(codes[i]);
         }
     }
     return u;

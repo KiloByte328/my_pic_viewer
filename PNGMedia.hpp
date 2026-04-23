@@ -189,6 +189,11 @@ namespace MyMediaTypes {
             }
             else {
                 std::cout << "not filtered data is not empty\n";
+                //filtering
+                for (auto& d : *not_filtered_data) {
+                    std::cout << (int)d << '\n';
+                }
+                delete not_filtered_data;
                 return;
             }
         }
