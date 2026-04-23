@@ -4,7 +4,7 @@
 #include <iostream>
 #include <unordered_map>
 
-const std::unordered_map<int, std::pair<int, int>> const_huffman_offset {
+const std::unordered_map<int, std::pair<int, int>> const_huffman_distance {
     {0, {0, 1}}, {1, {0, 2}}, {2, {0, 3}}, {3, {0, 4}}, {4, {1, 5}}, {5, {1, 7}},
     {6, {2, 9}}, {7, {2, 13}}, {8, {3, 17}}, {9, {3, 25}}, {10, {4, 33}}, {11, {4, 49}},
     {12, {5, 65}}, {13, {5, 97}}, {14, {6, 129}}, {15, {6, 193}}, {16, {7, 257}}, {17, {7, 385}},
@@ -27,7 +27,7 @@ struct zlib_data
     short last_read_bit;
 };
 
-uint32_t read_bits_lsb(zlib_data& data, uint32_t bits_to_read) {
+uint32_t read_bits_msb(zlib_data& data, uint32_t bits_to_read) {
     uint32_t msg = 0;
     for (uint32_t readed_bits = 0; readed_bits < bits_to_read; readed_bits++) {
         if (data.last_read_bit == 8) {
@@ -40,27 +40,33 @@ uint32_t read_bits_lsb(zlib_data& data, uint32_t bits_to_read) {
     return msg;
 }
 
-uint32_t read_bits_msb(zlib_data& data, uint32_t bits_to_read) {
+uint32_t read_bits_lsb(zlib_data& data, uint32_t bits_to_read) {
     uint32_t msg = 0;
-    for (uint32_t readed_bits = 0; readed_bits < bits_to_read; readed_bits++) {
+    for (int64_t readed_bits = bits_to_read; readed_bits > 0; readed_bits--) {
         if (data.last_read_bit == 8) {
             data.index++;
             data.last_read_bit = 0;
         }
-        msg = (msg << 1) | ((data.data[data.index] >> (8 - data.last_read_bit) == 0 ? 8 : data.last_read_bit) & 1);
+        short bit = ((((unsigned char) data.data[data.index] >> data.last_read_bit) & 1));
+        msg = msg | (bit << (readed_bits - 1));
+        std::cout << "get bit " << readed_bits-1 << " from lsb: " << bit << "\nmessage is: " << msg << '\n';
         data.last_read_bit++;
     }
     return msg;
 }
 
 void unpack_zlib(std::string& string_data) {
+    if (string_data.size() < 2) {
+        std::cout << "data can not be empty or below 2 chars\n";
+        return;
+    }
     zlib_data data {.data = string_data, .index = 1, .last_read_bit = 3};
     bool is_final = false;
     uint32_t code = 0;
     uint16_t distance = 0;
-    uint64_t offset = 0;
+    uint64_t length = 0;
     short check = 0;
-    std::vector<int> codes, offsets, distances;
+    std::vector<int> codes, lengths, distances, filters;
     // если есть словарь
     if (read_bits_lsb(data, 1) == 1) {
         // adler32 checksum 
@@ -84,30 +90,33 @@ void unpack_zlib(std::string& string_data) {
             case 1:
                 while(true) {
                     code = 0;
-                    offset = 0;
+                    length = 0;
                     distance = 0;
                     code = read_bits_lsb(data, 7);
-                    if (code >= 0 && code <= 23) {
+                    if (code <= 23) {
                         code += 256;
                         if (code == 256) {
                             break;
                         }
                         if (const_huffman_length.find(code) != const_huffman_length.end()) {
                             std::pair<int, int> get_length = (*const_huffman_length.find(code)).second;
-                            distance = read_bits_msb(data, get_length.first) + get_length.second;
+                            length = read_bits_lsb(data, get_length.first) + get_length.second;
+                            lengths.push_back(length);
+                            distance = read_bits_msb(data, 5);
+                            get_length = (*const_huffman_distance.find(distance)).second;
+                            distance = read_bits_lsb(data, get_length.first) + get_length.second;
                             distances.push_back(distance);
                         }
                         codes.push_back(code);
+                        if (const_huffman_length.find(code) != const_huffman_length.end()) {
+                            codes.push_back(length);
+                            codes.push_back(distance);
+                        }
                         continue;
                     }
                     code = (code << 1) | read_bits_lsb(data, 1);
                     if (code >= 48 && code <= 191) {
                         code = code - 48;
-                        if (const_huffman_offset.find(code) != const_huffman_offset.end()) {
-                            std::pair<int, int> get_offset = (*const_huffman_offset.find(code)).second;
-                            offset = read_bits_msb(data, get_offset.first) + get_offset.second;
-                            offsets.push_back(offset);
-                        }
                         codes.push_back(code);
                         continue;
                     }
@@ -115,10 +124,18 @@ void unpack_zlib(std::string& string_data) {
                         code = code - 192 + 280;
                         if (const_huffman_length.find(code) != const_huffman_length.end()) {
                             std::pair<int, int> get_length = (*const_huffman_length.find(code)).second;
-                            distance = read_bits_msb(data, get_length.first) + get_length.second;
+                            length = read_bits_lsb(data, get_length.first) + get_length.second;
+                            lengths.push_back(length);
+                            distance = read_bits_msb(data, 5);
+                            get_length = (*const_huffman_distance.find(distance)).second;
+                            distance = read_bits_lsb(data, get_length.first) + get_length.second;
                             distances.push_back(distance);
                         }
                         codes.push_back(code);
+                        if (const_huffman_length.find(code) != const_huffman_length.end()) {
+                            codes.push_back(length);
+                            codes.push_back(distance);
+                        }
                         continue;
                     }
                     code = (code << 1) | read_bits_lsb(data, 1);
@@ -135,17 +152,12 @@ void unpack_zlib(std::string& string_data) {
         }
         if (is_final) break;
     }
-    std::size_t d_count = 0, offset_count = 0; 
+    std::size_t d_count = 0, length_count = 0; 
     for (auto& c : codes) {
         std::cout << "code: " << c << '\n';
-        if (c <= 29) {
-            std::cout << "offset: " << offsets[offset_count] << '\n';
-            offset_count++;
-        }
-        if (c >= 257) {
-            std::cout << "distance " << distances[d_count] << '\n';
-            d_count++;
-        }
+    }
+    for (std::size_t q = 0; q < lengths.size(); q++) {
+        std::cout << "length: " << lengths[q] << " distance: " << distances[q] << '\n';
     }
 }
 
@@ -241,13 +253,13 @@ void unpack_zlib(std::string& string_data) {
 //                                 }
 //                                 new_dist = (new_dist << 1) | ((data[data_cursor] >> bit) & 1);
 //                             }
-//                             if (const_huffman_offset.find(new_dist) == const_huffman_offset.end()) {
+//                             if (const_huffman_length.find(new_dist) == const_huffman_length.end()) {
 //                                 std::cerr << "find not existed lz77 match at " << data_cursor 
 //                                 <<  "\n" << "match was: " << new_dist << "\ncode was: " << code << '\n';
 //                                 return;
 //                                 //error, maybe throw exception maybe not
 //                             }
-//                             get_lz = (*const_huffman_offset.find(new_dist)).second;
+//                             get_lz = (*const_huffman_length.find(new_dist)).second;
 //                             new_dist = 0;
 //                             for (short q = 0; q < get_lz.first; q++, bit++) {
 //                                 if (bit == 8) {

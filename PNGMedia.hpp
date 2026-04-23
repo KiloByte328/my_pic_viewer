@@ -178,6 +178,10 @@ namespace MyMediaTypes {
                 wah += next_chunk + 12;
             }
             // std::cout << idat_data << '\n';
+            if (idats == 0) {
+                std::cout << "can't unpack zlib deflate without IDAT chunks\n";
+                return;
+            }
             unpack_zlib(idat_data);
         }
     };
