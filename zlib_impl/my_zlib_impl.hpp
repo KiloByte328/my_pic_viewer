@@ -55,10 +55,10 @@ uint32_t read_bits_lsb(zlib_data& data, uint32_t bits_to_read) {
     return msg;
 }
 
-void unpack_zlib(std::string& string_data) {
+std::unique_ptr<std::vector<uint8_t>> unpack_zlib(std::string& string_data) {
     if (string_data.size() < 2) {
         std::cout << "data can not be empty or below 2 chars\n";
-        return;
+        return nullptr;
     }
     zlib_data data {.data = string_data, .index = 1, .last_read_bit = 3};
     bool is_final = false;
@@ -66,9 +66,10 @@ void unpack_zlib(std::string& string_data) {
     uint16_t distance = 0;
     uint64_t length = 0;
     short check = 0;
-    std::vector<MyMediaTypes::MediaTypePixels> rgba;
-    std::vector<uint8_t> unpacked_bytes;
-    std::vector<int> codes, lengths, distances;
+    std::vector<uint8_t>* unpacked_bytes;
+    std::unique_ptr<std::vector<uint8_t>> u = std::make_unique<std::vector<uint8_t>>();
+    unpacked_bytes = u.get();
+    std::vector<int> codes;
     // если есть словарь
     if (read_bits_lsb(data, 1) == 1) {
         // adler32 checksum 
@@ -103,11 +104,9 @@ void unpack_zlib(std::string& string_data) {
                         if (const_huffman_length.find(code) != const_huffman_length.end()) {
                             std::pair<int, int> get_length = (*const_huffman_length.find(code)).second;
                             length = read_bits_lsb(data, get_length.first) + get_length.second;
-                            lengths.push_back(length);
                             distance = read_bits_msb(data, 5);
                             get_length = (*const_huffman_distance.find(distance)).second;
                             distance = read_bits_lsb(data, get_length.first) + get_length.second;
-                            distances.push_back(distance);
                         }
                         codes.push_back(code);
                         if (const_huffman_length.find(code) != const_huffman_length.end()) {
@@ -127,11 +126,9 @@ void unpack_zlib(std::string& string_data) {
                         if (const_huffman_length.find(code) != const_huffman_length.end()) {
                             std::pair<int, int> get_length = (*const_huffman_length.find(code)).second;
                             length = read_bits_lsb(data, get_length.first) + get_length.second;
-                            lengths.push_back(length);
                             distance = read_bits_msb(data, 5);
                             get_length = (*const_huffman_distance.find(distance)).second;
                             distance = read_bits_lsb(data, get_length.first) + get_length.second;
-                            distances.push_back(distance);
                         }
                         codes.push_back(code);
                         if (const_huffman_length.find(code) != const_huffman_length.end()) {
@@ -157,26 +154,21 @@ void unpack_zlib(std::string& string_data) {
     for (auto& c : codes) {
         std::cout << "code: " << c << '\n';
     }
-    for (std::size_t q = 0; q < lengths.size(); q++) {
-        std::cout << "length: " << lengths[q] << " distance: " << distances[q] << '\n';
-    }
     for (std::size_t i = 0; i < codes.size(); i++) {
         if (codes[i] >= 256) {
             std::cout << "i above 255 is " << i << '\n' << "codes i+1 is " << codes[i+1] << " codes i+2 is " << codes[i+2]
-                      << " size of inpacked codes is " << unpacked_bytes.size() << '\n';
-            for (int q = unpacked_bytes.size() - codes[i+2], readed = 0; readed < codes[i+1]; readed++) {
-                unpacked_bytes.push_back(unpacked_bytes[q + (readed % (uint64_t)codes[i+2])]);
+                      << " size of inpacked codes is " << unpacked_bytes->size() << '\n';
+            for (int q = unpacked_bytes->size() - codes[i+2], readed = 0; readed < codes[i+1]; readed++) {
+                unpacked_bytes->push_back((*unpacked_bytes)[q + (readed % (uint64_t)codes[i+2])]);
                 std::cout << "readed is " << readed << " q is " << q << " readed % codes[i+2] " << readed % codes[i+2] << '\n';
             }
             i += 2;
         }
         else {
-            unpacked_bytes.push_back(codes[i]);
+            unpacked_bytes->push_back(codes[i]);
         }
     }
-    for (auto& b : unpacked_bytes) {
-        std::cout << (int)b << '\n';
-    }
+    return u;
 }
 
 // void unpack(std::string& data) {

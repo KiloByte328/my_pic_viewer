@@ -182,7 +182,15 @@ namespace MyMediaTypes {
                 std::cout << "can't unpack zlib deflate without IDAT chunks\n";
                 return;
             }
-            unpack_zlib(idat_data);
+            auto not_filtered_data = unpack_zlib(idat_data);
+            if (not_filtered_data == nullptr) {
+                std::cout << "not filtered data is empty\n";
+                return;
+            }
+            else {
+                std::cout << "not filtered data is not empty\n";
+                return;
+            }
         }
     };
 }
