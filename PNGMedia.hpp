@@ -154,7 +154,7 @@ namespace MyMediaTypes {
                 std::size_t next_chunk = pars_char_to_int(data.substr(wah, 4).c_str(), 4);
                 std::string chunk_header = data.substr(wah+4, 4);
                 // adler-32 считается только для уже не сжатых распакованных данных
-                // если fdict == 1, то до конца чанка будет идти словарь
+                // если fdict == 1, то 4 байта потом будет словарь который будет adler32
                 if (chunk_header.compare("IDAT") == 0) {
                     if (idats == 0) {
                         method = data[wah+8] & 0xf;
