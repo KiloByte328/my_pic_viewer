@@ -163,6 +163,10 @@ std::vector<uint8_t>* unpack_zlib(std::string& string_data) {
                 }
             case 2:
             break;
+            default:
+            std::cout << "error, deflate stream have reserved BTYPE\n";
+            delete u;
+            return nullptr;
         }
         if (is_final) break;
     }

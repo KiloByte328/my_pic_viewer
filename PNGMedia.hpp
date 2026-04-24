@@ -197,5 +197,31 @@ namespace MyMediaTypes {
                 return;
             }
         }
+
+        void defilter_image(std::vector<uint8_t>* data) {
+            // для каждого канала идёт отдельно. то есть
+            // должно выйти так что мы читаем фильтр
+            // после прочтения мы получаем первую строку
+            // если фильтр использует левый/левый верхний/верхний байты
+            // то если мы находимся в 0, то считаем что левый/левый верхний/верхний байты = 0
+            // ну и также мы должны для каждого отдельно всё это собирать, то есть у каждого будет свой
+            // байт по которому он будет идти
+            short filter = 0;
+            switch (filter) {
+                case 0: // none, just copy
+                break;
+                case 1: // sub byte now - byte left
+                break;
+                case 2: // sub byte now - byte up
+                break;
+                case 3: // byte now - (byte left + byte up) / 2
+                break;
+                case 4:
+                // need to find v = byte up + byte left - byte upper left(x-1,y-1)
+                //then sub from v byte up, byte left, byte upper left and store
+                // check who is minimal and this is the sub, byte now - who minimal
+                break;
+            }
+        }
     };
 }

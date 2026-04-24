@@ -46,6 +46,7 @@ namespace MyMediaTypes {
         std::size_t size;
         MediaTypeImageDetails details;
         bool corrupted = false;
+        std::vector<MediaTypePixels> pixels_data;
         //std::map <const char*, bool> chunks_visited;
         std::string data;
         public:
