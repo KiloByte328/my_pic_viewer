@@ -29,14 +29,14 @@ namespace MyMediaTypes {
         comp_lv = 0;
     };
     
-    struct MediaTypePixels
+    struct MediaTypePixel
     {
         uint8_t r, g, b, a;
     };
     
     class ImageType {
         MediaTypeImageDetails my_details;
-        std::vector<MediaTypePixels> Pixels;
+        std::vector<MediaTypePixel> Pixels;
         std::size_t width, height;
     };
 
@@ -46,7 +46,7 @@ namespace MyMediaTypes {
         std::size_t size;
         MediaTypeImageDetails details;
         bool corrupted = false;
-        std::vector<MediaTypePixels> pixels_data;
+        std::vector<MediaTypePixel> pixels_data;
         //std::map <const char*, bool> chunks_visited;
         std::string data;
         public:

@@ -20,6 +20,22 @@ const std::unordered_map<int, std::pair<int, int>> const_huffman_length {
     {281, {5, 131}}, {282, {5, 163}}, {283, {5, 195}}, {284, {5, 227}}, {285, {0, 258}}
 };
 
+const std::vector<short> dynamic_order{16, 17, 18, 0, 8, 7, 9, 6, 10, 5, 11, 4, 12, 3, 13, 2, 14, 1, 15};
+
+class DynHuffman_Creator {
+    private:
+        std::unordered_map<short, short> count;
+        short max_distance = 1, max_bits = 16;
+    public:
+        void count(std::unordered_map<short, short>& codes) {
+            for (const auto& c : codes) {
+                count[c.second]++;
+            }
+        }
+        
+
+};
+
 struct zlib_data
 {
     std::string data;
@@ -161,8 +177,80 @@ std::vector<uint8_t>* unpack_zlib(std::string& string_data) {
                         break;
                     }
                 }
-            case 2:
+            case 2: {
+                std::unordered_map<short, short> codes, base, distances;
+                short hlit, hdist, hclen, all_length;
+                hlit = read_bits_msb(data, 5) + 257;
+                hdist = read_bits_msb(data, 5) + 1; // + 3
+                all_length += hlit + hdist;
+                hclen = read_bits_msb(data, 4) + 4; // + 11
+                for (short d = 0; d < hclen; d++) {
+                    base[dynamic_order[d]] = read_bits_msb(data, 3);
+                }
+                // 0 - 15 - записывем
+                // 16 - читаем 2 бита, прибавляем 2, столько раз код повторится
+                // 17 - прочитай 3 бита, прибавь 3 и запиши прочитанное число нулей
+                // 18 - прочитай 7 бит, прибавь 11 и запиши прочитанное число нулей
+                for (short c = 0; c < hlit; c++) {
+                    short repeat_length;
+                    short new_code = read_bits_msb(data, 5);
+                    if (new_code <= 15) {
+                        codes[c] = base[new_code];
+                        continue;
+                    }
+                    if (new_code == 16) {
+                        repeat_length = read_bits_msb(data, 2);
+                        for (short nc = 1; nc <= repeat_length; nc++) {
+                            codes[c+nc] = codes[c];
+                        }
+                        c += repeat_length;
+                        continue;
+                    }
+                    if (new_code >= 17 && new_code <= 18) {
+                        repeat_length = read_bits_msb(data, new_code == 17 ? 3 : 7);
+                        for (short nc = 1; nc <= repeat_length; nc++) {
+                            codes[c+nc] = 0;
+                        }
+                        c += repeat_length;
+                        continue;
+                    }
+                    else {
+                        std::cout << "error, code can't be more 18\n";
+                        delete u;
+                        return nullptr;
+                    }
+                }
+                for (short c = 0; c < hdist; c++) {
+                    short repeat_length;
+                    short new_code = read_bits_msb(data, 5);
+                    if (new_code <= 15) {
+                        distances[c] = base[new_code];
+                        continue;
+                    }
+                    if (new_code == 16) {
+                        repeat_length = read_bits_msb(data, 2);
+                        for (short nc = 1; nc <= repeat_length; nc++) {
+                            distances[c+nc] = codes[c];
+                        }
+                        c += repeat_length;
+                        continue;
+                    }
+                    if (new_code >= 17 && new_code <= 18) {
+                        repeat_length = read_bits_msb(data, new_code == 17 ? 3 : 7);
+                        for (short nc = 1; nc <= repeat_length; nc++) {
+                            distances[c+nc] = 0;
+                        }
+                        c += repeat_length;
+                        continue;
+                    }
+                    else {
+                        std::cout << "error, code can't be more 18\n";
+                        delete u;
+                        return nullptr;
+                    }
+                }
             break;
+            }
             default:
             std::cout << "error, deflate stream have reserved BTYPE\n";
             delete u;

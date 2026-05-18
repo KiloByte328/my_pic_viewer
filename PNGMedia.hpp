@@ -17,6 +17,7 @@ namespace MyMediaTypes {
 
     class Pic_PNG : public Media_type {
         protected:
+        std::vector<MediaTypePixel> palette;
         std::map<std::string, bool> chunks_visited_crit = {
             {"IHDR", false}, {"PLTE", false}, {"IDAT", false}, {"IEND", false}
         };
@@ -29,7 +30,7 @@ namespace MyMediaTypes {
             {"acTL", false}
         };
         std::unordered_map<std::string, bool> multy= {
-            {"fcTL", true}, {"sPLT", true}, {"fdAT", 1}, {"iTXt", 1}, {"tEXt", 1}, {"zTXt", 1}
+            {"fcTL", true}, {"sPLT", true}, {"fdAT", true}, {"iTXt", true}, {"tEXt", true}, {"zTXt", true}
         };
         public:
         Pic_PNG() {
@@ -49,6 +50,11 @@ namespace MyMediaTypes {
             };
             data.clear(); data.append(new_data); }
         
+        // color type 0 - greyscale
+        // color type 2 - truecolor
+        // color type 3 - indexed
+        // color type 4 - greyscale with alpha
+        // color type 6 - truecolor with alpha
         bool type_and_depth_check() {
             if (details.color_type == 0 && (details.bit_depth == 1 || details.bit_depth == 2 || details.bit_depth == 4 || details.bit_depth == 8 || details.bit_depth == 16)) {
                 details.bit_on_pixel = details.bit_depth;
@@ -121,6 +127,9 @@ namespace MyMediaTypes {
                 wah += next_chunk + 12;
             }
             size = wah + 12;
+            if (details.color_type == 3 && (*chunks_visited_crit.find("PLTE")).second != true) {
+                corrupted = true;
+            }
             return corrupted;
         }
 
@@ -198,7 +207,7 @@ namespace MyMediaTypes {
             }
         }
 
-        void defilter_image(std::vector<uint8_t>* data) {
+        void defilter_image(std::vector<uint8_t>* ref_data) {
             // для каждого канала идёт отдельно. то есть
             // должно выйти так что мы читаем фильтр
             // после прочтения мы получаем первую строку
@@ -206,21 +215,162 @@ namespace MyMediaTypes {
             // то если мы находимся в 0, то считаем что левый/левый верхний/верхний байты = 0
             // ну и также мы должны для каждого отдельно всё это собирать, то есть у каждого будет свой
             // байт по которому он будет идти
-            short filter = 0;
-            switch (filter) {
-                case 0: // none, just copy
+
+            // грейскейл переводится как R = G = B = value, альфа канал там как пойдёт
+            std::vector<uint8_t> r, g, b, a;
+            auto& data = *ref_data;
+            short r_offset, g_offset, b_offset, a_offset;
+            // left = q - details.bit_on_pixel;
+            // up = q - details.bit_on_pixel * width
+            // up_left = up - details.bit_on_pixel
+            switch (details.color_type)
+            {
+            case 0:
+                r_offset = g_offset = b_offset = a_offset = 0;
+            case 4:
+                r_offset = g_offset = b_offset = 0;
+                a_offset = 1;
                 break;
-                case 1: // sub byte now - byte left
+            case 2:
+                r_offset = 0;
+                g_offset = 1;
+                b_offset = 2;
+                a_offset = 0;
                 break;
-                case 2: // sub byte now - byte up
+            case 3:
+                r_offset = 0;
+                g_offset = 1;
+                b_offset = 2;
+                a_offset = 0;
                 break;
-                case 3: // byte now - (byte left + byte up) / 2
+            case 6:
+                r_offset = 0;
+                g_offset = 1;
+                b_offset = 2;
+                a_offset = 3;
                 break;
-                case 4:
-                // need to find v = byte up + byte left - byte upper left(x-1,y-1)
-                //then sub from v byte up, byte left, byte upper left and store
-                // check who is minimal and this is the sub, byte now - who minimal
+            default:
                 break;
+            }
+            for (std::size_t q = 0; q < data.size(); q += (details.bit_on_pixel/8) * width) {
+                short filter = data[q];
+                q++;
+                for (std::size_t w = 0; w < width; w+= details.bit_on_pixel/8)
+                switch (filter) {
+                    case 0: // none, just copy
+                        r.push_back(data[q+w+r_offset]);
+                        g.push_back(data[q+w+g_offset]);
+                        b.push_back(data[q+w+b_offset]);
+                        if (details.color_type == 4 || details.color_type == 6) {
+                            a.push_back(data[q+w+a_offset]);
+                        }
+                        else {
+                            a.push_back(0);
+                        }
+                    break;
+                    case 1: // sub left, byte now - byte left
+                        if (w == 0) {
+                            r.push_back(data[q+w+r_offset]);
+                            g.push_back(data[q+w+g_offset]);
+                            b.push_back(data[q+w+b_offset]);
+                            if (details.color_type == 4 || details.color_type == 6) {
+                                a.push_back(data[q+w+a_offset]);
+                            }
+                            else {
+                                a.push_back(0);
+                            }
+                        }
+                        else {
+                            r.push_back(data[q+w+r_offset] - r[r.size() - 1]);
+                            g.push_back(data[q+w+g_offset] - g[g.size() - 1]);
+                            b.push_back(data[q+w+b_offset] - b[b.size() - 1]);
+                            if (details.color_type == 4 || details.color_type == 6) {
+                                a.push_back(data[q+w+a_offset] - a[a.size() - 1]);
+                            }
+                            else {
+                                a.push_back(0);
+                            }
+                        }
+                    break;
+                    case 2: // sub up, byte now - byte up
+                        r.push_back(data[q+w+r_offset] - r[r.size() - 1 - width]);
+                        g.push_back(data[q+w+g_offset] - g[g.size() - 1 - width]);
+                        b.push_back(data[q+w+b_offset] - b[b.size() - 1 - width]);
+                        if (details.color_type == 4 || details.color_type == 6) {
+                            a.push_back(data[q+w+a_offset] - a[a.size() - 1 - width]);
+                        }
+                        else {
+                            a.push_back(0);
+                        }
+                    break;
+                    case 3: // avg, byte now - (byte left + byte up) / 2
+                        if (w == 0) {
+                            r.push_back(data[q+w+r_offset] - r[r.size() - 1]);
+                            g.push_back(data[q+w+g_offset] - g[g.size() - 1]);
+                            b.push_back(data[q+w+b_offset] - b[b.size() - 1]);
+                            if (details.color_type == 4 || details.color_type == 6) {
+                                a.push_back(data[q+w+a_offset] - a[a.size() - 1]);
+                            }
+                            else {
+                                a.push_back(0);
+                            }
+                        }
+                        else {
+                            r.push_back(data[q+w+r_offset] - (r[r.size() - 1] + r[r.size() - 1 - width]));
+                            g.push_back(data[q+w+g_offset] - (g[g.size() - 1] + g[g.size() - 1 - width]));
+                            b.push_back(data[q+w+b_offset] - (b[b.size() - 1] + b[b.size() - 1 - width]));
+                            if (details.color_type == 4 || details.color_type == 6) {
+                                a.push_back(data[q+w+a_offset] - (a[a.size() - 1] + a[a.size() - 1 - width]));
+                            }
+                            else {
+                                a.push_back(0);
+                            }
+                        }
+                    break;
+                    case 4:
+                    // need to find v = byte up + byte left - byte upper left
+                    // then sub from v byte up, byte left, byte upper left and store
+                    // check who is minimal and this is the sub, byte now - who minimal
+                    if (w == 0) {
+                            short upper_r = r[r.size() - 1 - width] - r[r.size() - 1], upper_g = g[g.size() - 1 - width] - g[g.size() - 1], 
+                                  upper_b = b[b.size() - 1 - width] - b[b.size() - 1], upper_a = a[a.size() - 1 - width] - a[a.size() - 1];
+                            r.push_back(data[q+w+r_offset] - upper_r);
+                            g.push_back(data[q+w+g_offset] - upper_g);
+                            b.push_back(data[q+w+b_offset] - upper_b);
+                            if (details.color_type == 4 || details.color_type == 6) {
+                                a.push_back(data[q+w+a_offset] - upper_a);
+                            }
+                            else {
+                                a.push_back(0);
+                            }
+                        }
+                        else {
+                            short upper_r = r[r.size() - 1 - width], upper_g = g[g.size() - 1 - width], 
+                                  upper_b = b[b.size() - 1 - width], upper_a = a[a.size() - 1 - width];
+                            short upper_left_r = r[r.size() - 2 - width], upper_left_g = g[g.size() - 2 - width],
+                                  upper_left_b = b[b.size() - 2 - width], upper_left_a = a[a.size() - 2 - width];
+                            short left_r = r[r.size() - 1], left_g = g[g.size() - 1], 
+                                  left_b = b[b.size() - 1], left_a = a[a.size() - 1];
+                            uint16_t r_v = upper_r - upper_left_r + left_r,
+                                    g_v = upper_g - upper_left_g + left_g,
+                                    b_v = upper_b - upper_left_b + left_b,
+                                    a_v = upper_a - upper_left_a + left_a;
+                            r.push_back(data[q+w+r_offset] - (r[r.size() - 1] + r[r.size() - 1 - width]));
+                            g.push_back(data[q+w+g_offset] - (g[g.size() - 1] + g[g.size() - 1 - width]));
+                            b.push_back(data[q+w+b_offset] - (b[b.size() - 1] + b[b.size() - 1 - width]));
+                            if (details.color_type == 4 || details.color_type == 6) {
+                                a.push_back(data[q+w+a_offset] - (a[a.size() - 1] + a[a.size() - 1 - width]));
+                            }
+                            else {
+                                a.push_back(0);
+                            }
+                        }
+                    break;
+                    default:
+                    std::cout << "error, no filter type like this\n";
+                    corrupted = true;
+                    return;
+                }   
             }
         }
     };
