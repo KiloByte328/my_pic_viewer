@@ -3,3 +3,4 @@
 #include "PNGMedia.hpp"
 #include "JPEGMedia.hpp"
 #include "WEBPMedia.hpp"
+#include "QOIMedia.hpp"

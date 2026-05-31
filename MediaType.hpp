@@ -103,4 +103,7 @@ namespace MyMediaTypes {
         << "\nfilter: " << mt.get_filter() << "\nintelance: " << mt.get_interlace() << "\ncompression: " << mt.get_compression();
         return os;
     }
+    // class Pic_JPEG : public Media_type {};
+    // class Pic_PNG : public Media_type {};
+    // class Pic_WEBP : public Media_type {};
 }

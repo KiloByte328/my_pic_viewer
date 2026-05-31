@@ -199,178 +199,236 @@ namespace MyMediaTypes {
             else {
                 std::cout << "not filtered data is not empty\n";
                 //filtering
-                for (auto& d : *not_filtered_data) {
-                    std::cout << (int)d << '\n';
-                }
+                // for (auto& d : *not_filtered_data) {
+                //     std::cout << (int)d << '\n';
+                // }
+                defilter_image(not_filtered_data);
                 delete not_filtered_data;
                 return;
             }
         }
 
         void defilter_image(std::vector<uint8_t>* ref_data) {
-            // для каждого канала идёт отдельно. то есть
-            // должно выйти так что мы читаем фильтр
-            // после прочтения мы получаем первую строку
-            // если фильтр использует левый/левый верхний/верхний байты
-            // то если мы находимся в 0, то считаем что левый/левый верхний/верхний байты = 0
-            // ну и также мы должны для каждого отдельно всё это собирать, то есть у каждого будет свой
-            // байт по которому он будет идти
-
-            // грейскейл переводится как R = G = B = value, альфа канал там как пойдёт
+            if (ref_data == nullptr || ref_data->empty()) return;
+            
+            // Очищаем векторы для хранения распакованных данных
             std::vector<uint8_t> r, g, b, a;
+            
             auto& data = *ref_data;
+            
+            // Определяем смещения для каналов
             short r_offset, g_offset, b_offset, a_offset;
-            // left = q - details.bit_on_pixel;
-            // up = q - details.bit_on_pixel * width
-            // up_left = up - details.bit_on_pixel
-            switch (details.color_type)
-            {
-            case 0:
-                r_offset = g_offset = b_offset = a_offset = 0;
-            case 4:
-                r_offset = g_offset = b_offset = 0;
-                a_offset = 1;
-                break;
-            case 2:
-                r_offset = 0;
-                g_offset = 1;
-                b_offset = 2;
-                a_offset = 0;
-                break;
-            case 3:
-                r_offset = 0;
-                g_offset = 1;
-                b_offset = 2;
-                a_offset = 0;
-                break;
-            case 6:
-                r_offset = 0;
-                g_offset = 1;
-                b_offset = 2;
-                a_offset = 3;
-                break;
-            default:
-                break;
-            }
-            for (std::size_t q = 0; q < data.size(); q += (details.bit_on_pixel/8) * width) {
-                short filter = data[q];
-                q++;
-                for (std::size_t w = 0; w < width; w+= details.bit_on_pixel/8)
-                switch (filter) {
-                    case 0: // none, just copy
-                        r.push_back(data[q+w+r_offset]);
-                        g.push_back(data[q+w+g_offset]);
-                        b.push_back(data[q+w+b_offset]);
-                        if (details.color_type == 4 || details.color_type == 6) {
-                            a.push_back(data[q+w+a_offset]);
-                        }
-                        else {
-                            a.push_back(0);
-                        }
+            short bytes_per_pixel;
+            
+            switch (details.color_type) {
+                case 0: // Grayscale
+                    r_offset = g_offset = b_offset = a_offset = 0;
+                    bytes_per_pixel = details.bit_depth / 8;
                     break;
-                    case 1: // sub left, byte now - byte left
-                        if (w == 0) {
-                            r.push_back(data[q+w+r_offset]);
-                            g.push_back(data[q+w+g_offset]);
-                            b.push_back(data[q+w+b_offset]);
-                            if (details.color_type == 4 || details.color_type == 6) {
-                                a.push_back(data[q+w+a_offset]);
-                            }
-                            else {
-                                a.push_back(0);
-                            }
-                        }
-                        else {
-                            r.push_back(data[q+w+r_offset] - r[r.size() - 1]);
-                            g.push_back(data[q+w+g_offset] - g[g.size() - 1]);
-                            b.push_back(data[q+w+b_offset] - b[b.size() - 1]);
-                            if (details.color_type == 4 || details.color_type == 6) {
-                                a.push_back(data[q+w+a_offset] - a[a.size() - 1]);
-                            }
-                            else {
-                                a.push_back(0);
-                            }
-                        }
+                case 4: // Grayscale with alpha
+                    r_offset = g_offset = b_offset = 0;
+                    a_offset = 1;
+                    bytes_per_pixel = details.bit_depth / 4; // 2 bytes per pixel
                     break;
-                    case 2: // sub up, byte now - byte up
-                        r.push_back(data[q+w+r_offset] - r[r.size() - 1 - width]);
-                        g.push_back(data[q+w+g_offset] - g[g.size() - 1 - width]);
-                        b.push_back(data[q+w+b_offset] - b[b.size() - 1 - width]);
-                        if (details.color_type == 4 || details.color_type == 6) {
-                            a.push_back(data[q+w+a_offset] - a[a.size() - 1 - width]);
-                        }
-                        else {
-                            a.push_back(0);
-                        }
+                case 2: // RGB
+                    r_offset = 0;
+                    g_offset = 1;
+                    b_offset = 2;
+                    a_offset = 0;
+                    bytes_per_pixel = details.bit_depth / 8 * 3;
                     break;
-                    case 3: // avg, byte now - (byte left + byte up) / 2
-                        if (w == 0) {
-                            r.push_back(data[q+w+r_offset] - r[r.size() - 1]);
-                            g.push_back(data[q+w+g_offset] - g[g.size() - 1]);
-                            b.push_back(data[q+w+b_offset] - b[b.size() - 1]);
-                            if (details.color_type == 4 || details.color_type == 6) {
-                                a.push_back(data[q+w+a_offset] - a[a.size() - 1]);
-                            }
-                            else {
-                                a.push_back(0);
-                            }
-                        }
-                        else {
-                            r.push_back(data[q+w+r_offset] - (r[r.size() - 1] + r[r.size() - 1 - width]));
-                            g.push_back(data[q+w+g_offset] - (g[g.size() - 1] + g[g.size() - 1 - width]));
-                            b.push_back(data[q+w+b_offset] - (b[b.size() - 1] + b[b.size() - 1 - width]));
-                            if (details.color_type == 4 || details.color_type == 6) {
-                                a.push_back(data[q+w+a_offset] - (a[a.size() - 1] + a[a.size() - 1 - width]));
-                            }
-                            else {
-                                a.push_back(0);
-                            }
-                        }
+                case 3: // Palette
+                    r_offset = 0;
+                    g_offset = 1;
+                    b_offset = 2;
+                    a_offset = 0;
+                    bytes_per_pixel = 1;
                     break;
-                    case 4:
-                    // need to find v = byte up + byte left - byte upper left
-                    // then sub from v byte up, byte left, byte upper left and store
-                    // check who is minimal and this is the sub, byte now - who minimal
-                    if (w == 0) {
-                            short upper_r = r[r.size() - 1 - width] - r[r.size() - 1], upper_g = g[g.size() - 1 - width] - g[g.size() - 1], 
-                                  upper_b = b[b.size() - 1 - width] - b[b.size() - 1], upper_a = a[a.size() - 1 - width] - a[a.size() - 1];
-                            r.push_back(data[q+w+r_offset] - upper_r);
-                            g.push_back(data[q+w+g_offset] - upper_g);
-                            b.push_back(data[q+w+b_offset] - upper_b);
-                            if (details.color_type == 4 || details.color_type == 6) {
-                                a.push_back(data[q+w+a_offset] - upper_a);
-                            }
-                            else {
-                                a.push_back(0);
-                            }
-                        }
-                        else {
-                            short upper_r = r[r.size() - 1 - width], upper_g = g[g.size() - 1 - width], 
-                                  upper_b = b[b.size() - 1 - width], upper_a = a[a.size() - 1 - width];
-                            short upper_left_r = r[r.size() - 2 - width], upper_left_g = g[g.size() - 2 - width],
-                                  upper_left_b = b[b.size() - 2 - width], upper_left_a = a[a.size() - 2 - width];
-                            short left_r = r[r.size() - 1], left_g = g[g.size() - 1], 
-                                  left_b = b[b.size() - 1], left_a = a[a.size() - 1];
-                            uint16_t r_v = upper_r - upper_left_r + left_r,
-                                    g_v = upper_g - upper_left_g + left_g,
-                                    b_v = upper_b - upper_left_b + left_b,
-                                    a_v = upper_a - upper_left_a + left_a;
-                            r.push_back(data[q+w+r_offset] - (r[r.size() - 1] + r[r.size() - 1 - width]));
-                            g.push_back(data[q+w+g_offset] - (g[g.size() - 1] + g[g.size() - 1 - width]));
-                            b.push_back(data[q+w+b_offset] - (b[b.size() - 1] + b[b.size() - 1 - width]));
-                            if (details.color_type == 4 || details.color_type == 6) {
-                                a.push_back(data[q+w+a_offset] - (a[a.size() - 1] + a[a.size() - 1 - width]));
-                            }
-                            else {
-                                a.push_back(0);
-                            }
-                        }
+                case 6: // RGBA
+                    r_offset = 0;
+                    g_offset = 1;
+                    b_offset = 2;
+                    a_offset = 3;
+                    bytes_per_pixel = details.bit_depth / 8 * 4;
                     break;
-                    default:
-                    std::cout << "error, no filter type like this\n";
+                default:
+                    std::cout << "Unsupported color type: " << details.color_type << std::endl;
                     corrupted = true;
                     return;
-                }   
+            }
+            
+            // Обрабатываем каждую строку
+            std::size_t row = 0;
+            while (row < data.size()) {
+                if (row >= data.size()) break;
+                
+                // Читаем тип фильтра (1 байт в начале строки)
+                if (row + 1 > data.size()) break;
+                
+                short filter = data[row];
+                row++; // Пропускаем фильтр
+                
+                // Обрабатываем пиксели в строке
+                for (std::size_t pixel = 0; pixel < width; ++pixel) {
+                    if (row >= data.size()) break;
+                    
+                    // Получаем позицию пикселя
+                    std::size_t byte_pos = row + pixel * bytes_per_pixel;
+                    if (byte_pos + bytes_per_pixel > data.size()) break;
+                    
+                    switch (filter) {
+                        case 0: // None
+                            for (int i = 0; i < bytes_per_pixel; i++) {
+                                if (byte_pos + i < data.size()) {
+                                    if (i == r_offset) r.push_back(data[byte_pos + i]);
+                                    if (i == g_offset) g.push_back(data[byte_pos + i]);
+                                    if (i == b_offset) b.push_back(data[byte_pos + i]);
+                                    if (i == a_offset) a.push_back(data[byte_pos + i]);
+                                }
+                            }
+                            break;
+                            
+                        case 1: // Sub
+                            for (int i = 0; i < bytes_per_pixel; i++) {
+                                if (byte_pos + i < data.size()) {
+                                    uint8_t value = data[byte_pos + i];
+                                    if (pixel > 0) {
+                                        // Получаем значение предыдущего пикселя
+                                        uint8_t prev_value = 0;
+                                        if (i < r.size()) prev_value = r[r.size() - bytes_per_pixel + i];
+                                        else if (i < g.size()) prev_value = g[g.size() - bytes_per_pixel + i];
+                                        else if (i < b.size()) prev_value = b[b.size() - bytes_per_pixel + i];
+                                        else if (i < a.size()) prev_value = a[a.size() - bytes_per_pixel + i];
+                                        value += prev_value;
+                                    }
+                                    if (i == r_offset) r.push_back(value);
+                                    if (i == g_offset) g.push_back(value);
+                                    if (i == b_offset) b.push_back(value);
+                                    if (i == a_offset) a.push_back(value);
+                                }
+                            }
+                            break;
+                            
+                        case 2: // Up
+                            for (int i = 0; i < bytes_per_pixel; i++) {
+                                if (byte_pos + i < data.size()) {
+                                    uint8_t value = data[byte_pos + i];
+                                    if (row > bytes_per_pixel) {
+                                        // Получаем значение пикселя сверху
+                                        std::size_t up_pos = row - bytes_per_pixel + i;
+                                        if (up_pos < data.size()) {
+                                            value += data[up_pos];
+                                        }
+                                    }
+                                    if (i == r_offset) r.push_back(value);
+                                    if (i == g_offset) g.push_back(value);
+                                    if (i == b_offset) b.push_back(value);
+                                    if (i == a_offset) a.push_back(value);
+                                }
+                            }
+                            break;
+                            
+                        case 3: // Average
+                            for (int i = 0; i < bytes_per_pixel; i++) {
+                                if (byte_pos + i < data.size()) {
+                                    uint8_t value = data[byte_pos + i];
+                                    if (pixel > 0) {
+                                        // Среднее от левого и верхнего пикселя
+                                        uint8_t left_value = 0;
+                                        uint8_t up_value = 0;
+                                        
+                                        if (r.size() > 0 && i < r.size()) {
+                                            left_value = r[r.size() - bytes_per_pixel + i];
+                                        }
+                                        if (row > bytes_per_pixel && i < data.size()) {
+                                            std::size_t up_pos = row - bytes_per_pixel + i;
+                                            if (up_pos < data.size()) {
+                                                up_value = data[up_pos];
+                                            }
+                                        }
+                                        value += (left_value + up_value) / 2;
+                                    }
+                                    if (i == r_offset) r.push_back(value);
+                                    if (i == g_offset) g.push_back(value);
+                                    if (i == b_offset) b.push_back(value);
+                                    if (i == a_offset) a.push_back(value);
+                                }
+                            }
+                            break;
+                            
+                        case 4: // Paeth
+                            for (int i = 0; i < bytes_per_pixel; i++) {
+                                if (byte_pos + i < data.size()) {
+                                    uint8_t value = data[byte_pos + i];
+                                    if (pixel > 0) {
+                                        // Вычисляем предиктор Paeth
+                                        uint8_t left_value = 0;
+                                        uint8_t up_value = 0;
+                                        uint8_t up_left_value = 0;
+                                        
+                                        if (r.size() > 0 && i < r.size()) {
+                                            left_value = r[r.size() - bytes_per_pixel + i];
+                                        }
+                                        if (row > bytes_per_pixel && i < data.size()) {
+                                            std::size_t up_pos = row - bytes_per_pixel + i;
+                                            if (up_pos < data.size()) {
+                                                up_value = data[up_pos];
+                                            }
+                                        }
+                                        if (row > bytes_per_pixel && r.size() > bytes_per_pixel && i < r.size()) {
+                                            std::size_t up_left_pos = row - bytes_per_pixel + i - bytes_per_pixel;
+                                            if (up_left_pos < data.size()) {
+                                                up_left_value = data[up_left_pos];
+                                            }
+                                        }
+                                        
+                                        // Простой предиктор
+                                        int pred = left_value + up_value - up_left_value;
+                                        int diff_left = abs(pred - left_value);
+                                        int diff_up = abs(pred - up_value);
+                                        int diff_up_left = abs(pred - up_left_value);
+                                        
+                                        int result = pred;
+                                        if (diff_left <= diff_up && diff_left <= diff_up_left) {
+                                            result = left_value;
+                                        } else if (diff_up <= diff_up_left) {
+                                            result = up_value;
+                                        } else {
+                                            result = up_left_value;
+                                        }
+                                        
+                                        value += result;
+                                    }
+                                    if (i == r_offset) r.push_back(value);
+                                    if (i == g_offset) g.push_back(value);
+                                    if (i == b_offset) b.push_back(value);
+                                    if (i == a_offset) a.push_back(value);
+                                }
+                            }
+                            break;
+                            
+                        default:
+                            std::cout << "Unsupported filter type: " << filter << std::endl;
+                            corrupted = true;
+                            return;
+                    }
+                }
+                // Переход к следующей строке
+                row += bytes_per_pixel * width;
+            }
+            
+            // Переписываем данные обратно в ref_data
+            data.clear();
+            for (size_t i = 0; i < r.size(); ++i) {
+                data.push_back(r[i]);
+                data.push_back(g[i]);
+                data.push_back(b[i]);
+                std::cout << r[i] << " " << g[i] << " " << b[i] << ' ';
+                if (details.color_type == 4 || details.color_type == 6) {
+                    data.push_back(a[i]);
+                    std::cout << a[i];
+                }
+                std::cout << '\n';
             }
         }
     };

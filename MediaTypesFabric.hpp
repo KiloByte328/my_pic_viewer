@@ -1,6 +1,7 @@
 #include "MyMediaTypes.hpp"
 
-class MediaFactory {
+namespace MyMediaTypes {
+    class MediaFactory {
     private:
     std::unique_ptr<MyMediaTypes::Media_type> CreateImage(int w, int h) {
 
@@ -14,3 +15,4 @@ class MediaFactory {
     public:
 
 };
+}

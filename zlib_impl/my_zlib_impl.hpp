@@ -3,6 +3,7 @@
 #include <vector>
 #include <iostream>
 #include <unordered_map>
+#include <queue>
 
 const std::unordered_map<int, std::pair<int, int>> const_huffman_distance {
     {0, {0, 1}}, {1, {0, 2}}, {2, {0, 3}}, {3, {0, 4}}, {4, {1, 5}}, {5, {1, 7}},
@@ -22,18 +23,149 @@ const std::unordered_map<int, std::pair<int, int>> const_huffman_length {
 
 const std::vector<short> dynamic_order{16, 17, 18, 0, 8, 7, 9, 6, 10, 5, 11, 4, 12, 3, 13, 2, 14, 1, 15};
 
-class DynHuffman_Creator {
-    private:
-        std::unordered_map<short, short> count;
-        short max_distance = 1, max_bits = 16;
-    public:
-        void count(std::unordered_map<short, short>& codes) {
-            for (const auto& c : codes) {
-                count[c.second]++;
-            }
+struct HuffmanNode {
+    char symbol;        // Символ (для листьев)
+    int frequency;      // Частота
+    HuffmanNode* left;  // Левый потомок
+    HuffmanNode* right; // Правый потомок
+    
+    // Конструктор для внутренних узлов
+    HuffmanNode(int freq, HuffmanNode* l, HuffmanNode* r) 
+        : symbol('\0'), frequency(freq), left(l), right(r) {}
+    
+    // Конструктор для листьев
+    HuffmanNode(char sym, int freq) 
+        : symbol(sym), frequency(freq), left(nullptr), right(nullptr) {}
+};
+
+// Сравнение для приоритетной очереди (мин-куча)
+struct Compare {
+    bool operator()(HuffmanNode* a, HuffmanNode* b) {
+        return a->frequency > b->frequency;
+    }
+};
+
+class HuffmanTree {
+private:
+    HuffmanNode* root;
+    std::unordered_map<char, std::string> codes;
+
+public:
+    HuffmanTree() : root(nullptr) {}
+    
+    // Построить дерево Хаффмана по частотам символов
+    void buildTree(const std::unordered_map<char, int>& frequencies) {
+        // Очистка предыдущего дерева
+        clear();
+        
+        // Создаем приоритетную очередь (мин-куча)
+        std::priority_queue<HuffmanNode*, std::vector<HuffmanNode*>, Compare> minHeap;
+        
+        // Создаем листья для каждого символа
+        for (const auto& pair : frequencies) {
+            minHeap.push(new HuffmanNode(pair.first, pair.second));
         }
         
-
+        // Строим дерево
+        while (minHeap.size() > 1) {
+            // Берем два узла с наименьшими частотами
+            HuffmanNode* left = minHeap.top(); minHeap.pop();
+            HuffmanNode* right = minHeap.top(); minHeap.pop();
+            
+            // Создаем внутренний узел с суммой частот
+            int sumFreq = left->frequency + right->frequency;
+            HuffmanNode* newNode = new HuffmanNode(sumFreq, left, right);
+            
+            minHeap.push(newNode);
+        }
+        
+        // Оставшийся узел - корень дерева
+        if (!minHeap.empty()) {
+            root = minHeap.top();
+        } else {
+            root = nullptr;
+        }
+        
+        // Генерируем коды для каждого символа
+        generateCodes(root, "");
+    }
+    
+    // Рекурсивная функция для генерации кодов
+    void generateCodes(HuffmanNode* node, const std::string& code) {
+        if (node == nullptr) return;
+        
+        // Если это лист (символ), сохраняем его код
+        if (node->left == nullptr && node->right == nullptr) {
+            codes[node->symbol] = code.empty() ? "0" : code; // Для случая одного символа
+            return;
+        }
+        
+        // Обходим влево (добавляем 0)
+        generateCodes(node->left, code + "0");
+        // Обходим вправо (добавляем 1)
+        generateCodes(node->right, code + "1");
+    }
+    
+    // Получить код для символа
+    std::string getCode(char symbol) const {
+        auto it = codes.find(symbol);
+        return (it != codes.end()) ? it->second : "";
+    }
+    
+    // Получить все коды
+    const std::unordered_map<char, std::string>& getCodes() const {
+        return codes;
+    }
+    
+    // Вывести дерево в виде таблицы
+    void printCodes() const {
+        std::cout << "Коды Хаффмана:\n";
+        for (const auto& pair : codes) {
+            std::cout << "'"<< pair.first << "': " << pair.second << "\n";
+        }
+    }
+    
+    // Рекурсивный вывод дерева (для отладки)
+    void printTree(HuffmanNode* node, const std::string& prefix = "") const {
+        if (node == nullptr) return;
+        
+        if (node->left == nullptr && node->right == nullptr) {
+            std::cout << prefix << "├── '" << node->symbol << "' (частота: " << node->frequency << ")\n";
+        } else {
+            std::cout << prefix << "├── узел (частота: " << node->frequency << ")\n";
+            if (node->left)  printTree(node->left,  prefix + "│   ");
+            if (node->right) printTree(node->right, prefix + "│   ");
+        }
+    }
+    
+    void printTree() const {
+        std::cout << "Дерево Хаффмана:\n";
+        if (root) {
+            printTree(root);
+        } else {
+            std::cout << "Дерево пустое\n";
+        }
+    }
+    
+    // Очистка памяти
+    void clear() {
+        deleteTree(root);
+        root = nullptr;
+        codes.clear();
+    }
+    
+private:
+    void deleteTree(HuffmanNode* node) {
+        if (node == nullptr) return;
+        deleteTree(node->left);
+        deleteTree(node->right);
+        delete node;
+    }
+    
+public:
+    ~HuffmanTree() {
+        clear();
+    }
 };
 
 struct zlib_data
@@ -84,6 +216,8 @@ std::vector<uint8_t>* unpack_zlib(std::string& string_data) {
     short check = 0;
     std::vector<uint8_t>* u = new std::vector<uint8_t>;
     std::vector<int> codes;
+    std::vector <int> there_codes;
+    std::unordered_map<short, short> dyn_codes, base, distances;
     // если есть словарь
     if (read_bits_lsb(data, 1) == 1) {
         // adler32 checksum 
@@ -177,8 +311,8 @@ std::vector<uint8_t>* unpack_zlib(std::string& string_data) {
                         break;
                     }
                 }
+                break;
             case 2: {
-                std::unordered_map<short, short> codes, base, distances;
                 short hlit, hdist, hclen, all_length;
                 hlit = read_bits_msb(data, 5) + 257;
                 hdist = read_bits_msb(data, 5) + 1; // + 3
@@ -195,13 +329,13 @@ std::vector<uint8_t>* unpack_zlib(std::string& string_data) {
                     short repeat_length;
                     short new_code = read_bits_msb(data, 5);
                     if (new_code <= 15) {
-                        codes[c] = base[new_code];
+                        dyn_codes[c] = base[new_code];
                         continue;
                     }
                     if (new_code == 16) {
                         repeat_length = read_bits_msb(data, 2);
                         for (short nc = 1; nc <= repeat_length; nc++) {
-                            codes[c+nc] = codes[c];
+                            dyn_codes[c+nc] = dyn_codes[c];
                         }
                         c += repeat_length;
                         continue;
@@ -209,7 +343,7 @@ std::vector<uint8_t>* unpack_zlib(std::string& string_data) {
                     if (new_code >= 17 && new_code <= 18) {
                         repeat_length = read_bits_msb(data, new_code == 17 ? 3 : 7);
                         for (short nc = 1; nc <= repeat_length; nc++) {
-                            codes[c+nc] = 0;
+                            dyn_codes[c+nc] = 0;
                         }
                         c += repeat_length;
                         continue;
@@ -235,7 +369,7 @@ std::vector<uint8_t>* unpack_zlib(std::string& string_data) {
                         c += repeat_length;
                         continue;
                     }
-                    if (new_code >= 17 && new_code <= 18) {
+                    if (new_code == 17 && new_code == 18) {
                         repeat_length = read_bits_msb(data, new_code == 17 ? 3 : 7);
                         for (short nc = 1; nc <= repeat_length; nc++) {
                             distances[c+nc] = 0;
@@ -249,6 +383,64 @@ std::vector<uint8_t>* unpack_zlib(std::string& string_data) {
                         return nullptr;
                     }
                 }
+                code = 0;
+                length = 0;
+                distance = 0;
+                while(true) {
+                    code = read_bits_lsb(data, 7);
+                    if (dyn_codes.contains(code))
+                        if (code <= 23) {
+                        code += 256;
+                        if (code == 256) {
+                            break;
+                        }
+                        if (const_huffman_length.find(code) != const_huffman_length.end()) {
+                            std::pair<int, int> get_length = (*const_huffman_length.find(code)).second;
+                            length = read_bits_lsb(data, get_length.first) + get_length.second;
+                            distance = read_bits_msb(data, 5);
+                            get_length = (*const_huffman_distance.find(distance)).second;
+                            distance = read_bits_lsb(data, get_length.first) + get_length.second;
+                        }
+                        codes.push_back(code);
+                        if (const_huffman_length.find(code) != const_huffman_length.end()) {
+                            codes.push_back(length);
+                            codes.push_back(distance);
+                        }
+                        continue;
+                    }
+                    code = (code << 1) | read_bits_lsb(data, 1);
+                    if (dyn_codes.contains(code))
+                        if (code >= 48 && code <= 191) {
+                            code = code - 48;
+                            there_codes.push_back(code);
+                            continue;
+                        }
+                        else if (dyn_codes.contains(code) && code >= 192 && code <= 199) {
+                            code = code - 192 + 280;
+                            if (const_huffman_length.find(code) != const_huffman_length.end()) {
+                                std::pair<int, int> get_length = (*const_huffman_length.find(code)).second;
+                                length = read_bits_lsb(data, get_length.first) + get_length.second;
+                                distance = read_bits_msb(data, 5);
+                                get_length = (*const_huffman_distance.find(distance)).second;
+                                distance = read_bits_lsb(data, get_length.first) + get_length.second;
+                            }
+                            codes.push_back(code);
+                            if (const_huffman_length.find(code) != const_huffman_length.end()) {
+                                codes.push_back(length);
+                                codes.push_back(distance);
+                            }
+                            continue;
+                        }
+                    code = (code << 1) | read_bits_lsb(data, 1);
+                    if (dyn_codes.contains(code))
+                        if (code >= 400 && code <= 511) {
+                            code = code - 400 + 144;
+                            codes.push_back(code);
+                        }
+                        else {
+                            break;
+                        }
+                    }
             break;
             }
             default:
