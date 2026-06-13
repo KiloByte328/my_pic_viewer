@@ -31,7 +31,7 @@ namespace MyMediaTypes {
     
     struct MediaTypePixel
     {
-        uint8_t r, g, b, a;
+        uint8_t r = 0, g = 0, b = 0, a = 255;
     };
     
     class ImageType {
@@ -100,7 +100,7 @@ namespace MyMediaTypes {
         }
         os << "\nwidth: " << mt.get_width() << "\nheigth: " << mt.get_height() 
         << "\nsize: " << mt.get_size() << "\nbits depth: " << mt.get_depth() << "\ncolor_type: " << mt.get_color_type() << "\nbits on pixel: " << mt.get_bop()
-        << "\nfilter: " << mt.get_filter() << "\nintelance: " << mt.get_interlace() << "\ncompression: " << mt.get_compression();
+        << "\nfilter: " << mt.get_filter() << "\nintelance: " << mt.get_interlace() << "\ncompression: " << mt.get_compression() << '\n';
         return os;
     }
     // class Pic_JPEG : public Media_type {};

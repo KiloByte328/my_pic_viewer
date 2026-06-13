@@ -40,7 +40,7 @@ namespace MyMediaTypes {
                 .color_type = 6, .filter_method = 0, 
                 .interlace_method = 0, .bit_on_pixel = 2, .type = 1
                 };
-            }
+        }
         Pic_PNG(std::string new_data) { 
             width = 800; height = 600; size = -1; 
             details = {
@@ -48,8 +48,18 @@ namespace MyMediaTypes {
                 .color_type = 6, .filter_method = 0, 
                 .interlace_method = 0, .bit_on_pixel = 2, .type = 1
             };
-            data.clear(); data.append(new_data); }
-        
+            data.clear(); data.append(new_data); 
+        }
+        Pic_PNG(std::size_t w, std::size_t h) {
+            width = w; height = h; data.clear(); pixels_data.clear(); pixels_data.reserve(w * h);
+            size = w * h;
+            details = {
+                .bit_depth = 8, .compression_method = 0, 
+                .color_type = 6, .filter_method = 0, 
+                .interlace_method = 0, .bit_on_pixel = 2, .type = 1
+            };
+            data.clear();
+        }
         // color type 0 - greyscale
         // color type 2 - truecolor
         // color type 3 - indexed
@@ -151,6 +161,8 @@ namespace MyMediaTypes {
         }
 
         virtual void decode_image() override {
+            if (corrupted)
+                return;
             std::size_t wah = 8;
             std::string idat_data, dict;
             int method;
@@ -210,13 +222,11 @@ namespace MyMediaTypes {
 
         void defilter_image(std::vector<uint8_t>* ref_data) {
             if (ref_data == nullptr || ref_data->empty()) return;
-            
-            // Очищаем векторы для хранения распакованных данных
+
             std::vector<uint8_t> r, g, b, a;
             
             auto& data = *ref_data;
             
-            // Определяем смещения для каналов
             short r_offset, g_offset, b_offset, a_offset;
             short bytes_per_pixel;
             
@@ -257,22 +267,18 @@ namespace MyMediaTypes {
                     return;
             }
             
-            // Обрабатываем каждую строку
             std::size_t row = 0;
             while (row < data.size()) {
                 if (row >= data.size()) break;
                 
-                // Читаем тип фильтра (1 байт в начале строки)
                 if (row + 1 > data.size()) break;
                 
                 short filter = data[row];
-                row++; // Пропускаем фильтр
+                row++;
                 
-                // Обрабатываем пиксели в строке
                 for (std::size_t pixel = 0; pixel < width; ++pixel) {
                     if (row >= data.size()) break;
                     
-                    // Получаем позицию пикселя
                     std::size_t byte_pos = row + pixel * bytes_per_pixel;
                     if (byte_pos + bytes_per_pixel > data.size()) break;
                     
@@ -293,7 +299,6 @@ namespace MyMediaTypes {
                                 if (byte_pos + i < data.size()) {
                                     uint8_t value = data[byte_pos + i];
                                     if (pixel > 0) {
-                                        // Получаем значение предыдущего пикселя
                                         uint8_t prev_value = 0;
                                         if (i < r.size()) prev_value = r[r.size() - bytes_per_pixel + i];
                                         else if (i < g.size()) prev_value = g[g.size() - bytes_per_pixel + i];
@@ -314,7 +319,6 @@ namespace MyMediaTypes {
                                 if (byte_pos + i < data.size()) {
                                     uint8_t value = data[byte_pos + i];
                                     if (row > bytes_per_pixel) {
-                                        // Получаем значение пикселя сверху
                                         std::size_t up_pos = row - bytes_per_pixel + i;
                                         if (up_pos < data.size()) {
                                             value += data[up_pos];
@@ -333,7 +337,6 @@ namespace MyMediaTypes {
                                 if (byte_pos + i < data.size()) {
                                     uint8_t value = data[byte_pos + i];
                                     if (pixel > 0) {
-                                        // Среднее от левого и верхнего пикселя
                                         uint8_t left_value = 0;
                                         uint8_t up_value = 0;
                                         
@@ -361,7 +364,6 @@ namespace MyMediaTypes {
                                 if (byte_pos + i < data.size()) {
                                     uint8_t value = data[byte_pos + i];
                                     if (pixel > 0) {
-                                        // Вычисляем предиктор Paeth
                                         uint8_t left_value = 0;
                                         uint8_t up_value = 0;
                                         uint8_t up_left_value = 0;
@@ -382,7 +384,6 @@ namespace MyMediaTypes {
                                             }
                                         }
                                         
-                                        // Простой предиктор
                                         int pred = left_value + up_value - up_left_value;
                                         int diff_left = abs(pred - left_value);
                                         int diff_up = abs(pred - up_value);
@@ -413,20 +414,16 @@ namespace MyMediaTypes {
                             return;
                     }
                 }
-                // Переход к следующей строке
                 row += bytes_per_pixel * width;
             }
             
-            // Переписываем данные обратно в ref_data
             data.clear();
             for (size_t i = 0; i < r.size(); ++i) {
-                data.push_back(r[i]);
-                data.push_back(g[i]);
-                data.push_back(b[i]);
-                std::cout << r[i] << " " << g[i] << " " << b[i] << ' ';
                 if (details.color_type == 4 || details.color_type == 6) {
-                    data.push_back(a[i]);
-                    std::cout << a[i];
+                    pixels_data.push_back({r[i], g[i], b[i], a[i]});
+                }
+                else {
+                    pixels_data.push_back({r[i], g[i], b[i], 255});
                 }
                 std::cout << '\n';
             }

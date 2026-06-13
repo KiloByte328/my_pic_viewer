@@ -1,4 +1,4 @@
-#include "parser_lib.hpp"
+#include "MediaTypesFabric.hpp"
 
     // magic numbers for mediatypes
     // find_in_c_str(data.c_str(), 200, "\211PNG\r", 6) != (std::size_t)-1
@@ -31,21 +31,8 @@ int main(int argc, char** argv) {
         std::cin >> path;
     }
     std::fstream fl;
-    MyMediaTypes::Media_type* pntr;
-    fl.open(path, std::ios::in);
-    if (!fl.is_open()) {
-        std::cout << "cant open file\n";
-        return 1;
-    }
+    auto pntr = MyMediaTypes::MediaFactory::LoadImage(path);
+    std::cout << (*pntr);
     make_crc_table();
-    str_strm << fl.rdbuf();
-    data.append(str_strm.str());
-    fl.close();
-    bool test;
-    data.find("\211PNG\r", 0) != data.npos ? pntr = new MyMediaTypes::Pic_PNG(data) : pntr = new MyMediaTypes::Invalid_Media;
-    pntr->get_type() == 1 ? test = pntr->parse() : 0 ;
-    !test ? std::cout << *pntr << '\n' : std::cout << "file is corrupted PNG\n cant open, end of programm\n";
-    // std::cout << *pntr << '\n';
-    delete pntr;
     return 0;
 } 

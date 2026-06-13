@@ -54,7 +54,7 @@ public:
     HuffmanTree() : root(nullptr) {}
     
     // Построить дерево Хаффмана по частотам символов
-    void buildTree(const std::unordered_map<char, int>& frequencies) {
+    void buildTree(const std::unordered_map<short, short>& frequencies) {
         // Очистка предыдущего дерева
         clear();
         
@@ -383,6 +383,10 @@ std::vector<uint8_t>* unpack_zlib(std::string& string_data) {
                         return nullptr;
                     }
                 }
+                HuffmanTree cds;
+                cds.buildTree(dyn_codes);
+                HuffmanTree dstncs;
+                dstncs.buildTree(distances);
                 code = 0;
                 length = 0;
                 distance = 0;
