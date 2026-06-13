@@ -4,6 +4,7 @@
 #include <iostream>
 #include <unordered_map>
 #include <queue>
+#include <map>
 
 const std::unordered_map<int, std::pair<int, int>> const_huffman_distance {
     {0, {0, 1}}, {1, {0, 2}}, {2, {0, 3}}, {3, {0, 4}}, {4, {1, 5}}, {5, {1, 7}},
@@ -49,75 +50,117 @@ class HuffmanTree {
 private:
     HuffmanNode* root;
     std::unordered_map<char, std::string> codes;
+    std::unordered_map<std::string, int> reverse_codes;
 
 public:
     HuffmanTree() : root(nullptr) {}
     
-    // Построить дерево Хаффмана по частотам символов
     void buildTree(const std::unordered_map<short, short>& frequencies) {
-        // Очистка предыдущего дерева
         clear();
         
-        // Создаем приоритетную очередь (мин-куча)
         std::priority_queue<HuffmanNode*, std::vector<HuffmanNode*>, Compare> minHeap;
         
-        // Создаем листья для каждого символа
         for (const auto& pair : frequencies) {
             minHeap.push(new HuffmanNode(pair.first, pair.second));
         }
-        
-        // Строим дерево
+    
         while (minHeap.size() > 1) {
-            // Берем два узла с наименьшими частотами
             HuffmanNode* left = minHeap.top(); minHeap.pop();
             HuffmanNode* right = minHeap.top(); minHeap.pop();
             
-            // Создаем внутренний узел с суммой частот
             int sumFreq = left->frequency + right->frequency;
             HuffmanNode* newNode = new HuffmanNode(sumFreq, left, right);
             
             minHeap.push(newNode);
         }
         
-        // Оставшийся узел - корень дерева
         if (!minHeap.empty()) {
             root = minHeap.top();
         } else {
             root = nullptr;
         }
         
-        // Генерируем коды для каждого символа
+        generateCodes(root, "");
+    }
+    void buildTree(const std::map<short, short>& frequencies) {
+        clear();
+        
+        std::priority_queue<HuffmanNode*, std::vector<HuffmanNode*>, Compare> minHeap;
+        
+        for (const auto& pair : frequencies) {
+            minHeap.push(new HuffmanNode(pair.first, pair.second));
+        }
+    
+        while (minHeap.size() > 1) {
+            HuffmanNode* left = minHeap.top(); minHeap.pop();
+            HuffmanNode* right = minHeap.top(); minHeap.pop();
+            
+            int sumFreq = left->frequency + right->frequency;
+            HuffmanNode* newNode = new HuffmanNode(sumFreq, left, right);
+            
+            minHeap.push(newNode);
+        }
+        
+        if (!minHeap.empty()) {
+            root = minHeap.top();
+        } else {
+            root = nullptr;
+        }
+        
         generateCodes(root, "");
     }
     
-    // Рекурсивная функция для генерации кодов
     void generateCodes(HuffmanNode* node, const std::string& code) {
         if (node == nullptr) return;
         
-        // Если это лист (символ), сохраняем его код
         if (node->left == nullptr && node->right == nullptr) {
-            codes[node->symbol] = code.empty() ? "0" : code; // Для случая одного символа
+            codes[node->symbol] = code.empty() ? "0" : code;
+            reverse_codes[code.empty() ? "0" : code] = static_cast<int>(node->symbol);
             return;
         }
         
-        // Обходим влево (добавляем 0)
         generateCodes(node->left, code + "0");
-        // Обходим вправо (добавляем 1)
         generateCodes(node->right, code + "1");
     }
     
-    // Получить код для символа
-    std::string getCode(char symbol) const {
+    // Получить код для символа (возвращаем число)
+    int getCodeAsNumber(char symbol) const {
         auto it = codes.find(symbol);
-        return (it != codes.end()) ? it->second : "";
+        if (it != codes.end()) {
+            // Преобразуем строку в число (если нужно)
+            int result = 0;
+            for (char c : it->second) {
+                result = (result << 1) | (c - '0');
+            }
+            return result;
+        }
+        return -1; // Ошибка
     }
     
-    // Получить все коды
+    // Получить символ по коду (возвращаем char)
+    char getSymbolByCode(const std::string& code) const {
+        auto it = reverse_codes.find(code);
+        if (it != reverse_codes.end()) {
+            return static_cast<char>(it->second);
+        }
+        return '\0'; // Ошибка
+    }
+    
+    // Поиск кода по битам
+    int findCodeByBits(const std::string& bits) const {
+        for (const auto& pair : reverse_codes) {
+            if (pair.first.size() <= bits.size() && 
+                bits.substr(0, pair.first.size()) == pair.first) {
+                return pair.second;
+            }
+        }
+        return -1; // Не найдено
+    }
+    
     const std::unordered_map<char, std::string>& getCodes() const {
         return codes;
     }
     
-    // Вывести дерево в виде таблицы
     void printCodes() const {
         std::cout << "Коды Хаффмана:\n";
         for (const auto& pair : codes) {
@@ -125,7 +168,6 @@ public:
         }
     }
     
-    // Рекурсивный вывод дерева (для отладки)
     void printTree(HuffmanNode* node, const std::string& prefix = "") const {
         if (node == nullptr) return;
         
@@ -147,11 +189,11 @@ public:
         }
     }
     
-    // Очистка памяти
     void clear() {
         deleteTree(root);
         root = nullptr;
         codes.clear();
+        reverse_codes.clear();
     }
     
 private:
@@ -217,7 +259,8 @@ std::vector<uint8_t>* unpack_zlib(std::string& string_data) {
     std::vector<uint8_t>* u = new std::vector<uint8_t>;
     std::vector<int> codes;
     std::vector <int> there_codes;
-    std::unordered_map<short, short> dyn_codes, base, distances;
+    std::unordered_map<short, short> dyn_codes, distances;
+    std::map<short, short> base;
     // если есть словарь
     if (read_bits_lsb(data, 1) == 1) {
         // adler32 checksum 
@@ -314,35 +357,45 @@ std::vector<uint8_t>* unpack_zlib(std::string& string_data) {
                 break;
             case 2: {
                 short hlit, hdist, hclen, all_length;
-                hlit = read_bits_msb(data, 5) + 257;
-                hdist = read_bits_msb(data, 5) + 1; // + 3
+                hlit = read_bits_lsb(data, 5) + 257;
+                hdist = read_bits_lsb(data, 5) + 1; // + 3
                 all_length += hlit + hdist;
-                hclen = read_bits_msb(data, 4) + 4; // + 11
+                hclen = read_bits_lsb(data, 4) + 4; // + 11
                 for (short d = 0; d < hclen; d++) {
-                    base[dynamic_order[d]] = read_bits_msb(data, 3);
+                    base[dynamic_order[d]] = read_bits_lsb(data, 3);
                 }
+                HuffmanTree base_tree;
+                base_tree.buildTree(base);
                 // 0 - 15 - записывем
                 // 16 - читаем 2 бита, прибавляем 2, столько раз код повторится
                 // 17 - прочитай 3 бита, прибавь 3 и запиши прочитанное число нулей
                 // 18 - прочитай 7 бит, прибавь 11 и запиши прочитанное число нулей
                 for (short c = 0; c < hlit; c++) {
                     short repeat_length;
-                    short new_code = read_bits_msb(data, 5);
-                    if (new_code <= 15) {
+                    short new_code = read_bits_lsb(data, 5);
+                    if (base_tree.getCodeAsNumber(new_code) <= 15) {
                         dyn_codes[c] = base[new_code];
                         continue;
                     }
-                    if (new_code == 16) {
-                        repeat_length = read_bits_msb(data, 2);
-                        for (short nc = 1; nc <= repeat_length; nc++) {
+                    if (base_tree.getCodeAsNumber(new_code) == 16) {
+                        repeat_length = read_bits_lsb(data, 2);
+                        for (short nc = 1; nc <= repeat_length+3; nc++) {
                             dyn_codes[c+nc] = dyn_codes[c];
                         }
                         c += repeat_length;
                         continue;
                     }
-                    if (new_code >= 17 && new_code <= 18) {
-                        repeat_length = read_bits_msb(data, new_code == 17 ? 3 : 7);
-                        for (short nc = 1; nc <= repeat_length; nc++) {
+                    if (base_tree.getCodeAsNumber(new_code) == 17) {
+                        repeat_length = read_bits_lsb(data, 3);
+                        for (short nc = 1; nc <= repeat_length+3; nc++) {
+                            dyn_codes[c+nc] = 0;
+                        }
+                        c += repeat_length;
+                        continue;
+                    }
+                    if (base_tree.getCodeAsNumber(new_code) == 18) {
+                        repeat_length = read_bits_lsb(data, 7);
+                        for (short nc = 1; nc <= repeat_length+11; nc++) {
                             dyn_codes[c+nc] = 0;
                         }
                         c += repeat_length;
@@ -357,11 +410,11 @@ std::vector<uint8_t>* unpack_zlib(std::string& string_data) {
                 for (short c = 0; c < hdist; c++) {
                     short repeat_length;
                     short new_code = read_bits_msb(data, 5);
-                    if (new_code <= 15) {
+                    if (base_tree.getCodeAsNumber(new_code) <= 15) {
                         distances[c] = base[new_code];
                         continue;
                     }
-                    if (new_code == 16) {
+                    if (base_tree.getCodeAsNumber(new_code) == 16) {
                         repeat_length = read_bits_msb(data, 2);
                         for (short nc = 1; nc <= repeat_length; nc++) {
                             distances[c+nc] = codes[c];
@@ -369,9 +422,17 @@ std::vector<uint8_t>* unpack_zlib(std::string& string_data) {
                         c += repeat_length;
                         continue;
                     }
-                    if (new_code == 17 && new_code == 18) {
-                        repeat_length = read_bits_msb(data, new_code == 17 ? 3 : 7);
-                        for (short nc = 1; nc <= repeat_length; nc++) {
+                    if (base_tree.getCodeAsNumber(new_code) == 17) {
+                        repeat_length = read_bits_msb(data, 3);
+                        for (short nc = 1; nc <= repeat_length+3; nc++) {
+                            distances[c+nc] = 0;
+                        }
+                        c += repeat_length;
+                        continue;
+                    }
+                    if (base_tree.getCodeAsNumber(new_code) == 18) {
+                        repeat_length = read_bits_msb(data, 7);
+                        for (short nc = 1; nc <= repeat_length+11; nc++) {
                             distances[c+nc] = 0;
                         }
                         c += repeat_length;
